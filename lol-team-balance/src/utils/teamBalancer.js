@@ -330,7 +330,6 @@ function evaluateAdvancedLaneBalance(composition) {
 function getAdvancedOverallBalance(laneBalance) {
   const grades = Object.values(laneBalance).map(lb => lb.grade);
   const goldenCount = grades.filter(g => g === '황벨').length;
-  const fairCount = grades.filter(g => g === '맞벨').length;
   const poorCount = grades.filter(g => g === '똥벨').length;
 
   // algorithm.md 기준 더 엄격한 평가

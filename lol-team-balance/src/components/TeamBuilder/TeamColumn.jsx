@@ -2,7 +2,7 @@ import React from 'react';
 import PlayerSlot from './PlayerSlot';
 import { useDroppable } from '@dnd-kit/core';
 
-const TeamColumn = ({ teamNumber, players, onRemovePlayer, balanceInfo }) => {
+const TeamColumn = ({ teamNumber, players, onRemovePlayer }) => {
   const roles = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
   
   const { setNodeRef } = useDroppable({
@@ -26,7 +26,6 @@ const TeamColumn = ({ teamNumber, players, onRemovePlayer, balanceInfo }) => {
       <div style={{ padding: '10px', flex: '1', overflowY: 'visible', display: 'flex', flexDirection: 'column' }}>
         {roles.map(role => {
           const player = playersByRole[role];
-          const balance = balanceInfo?.[role];
           
           return (
             <div key={role} style={{ marginBottom: '8px' }}>
