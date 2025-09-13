@@ -28,12 +28,19 @@ export default async function handler(req, res) {
       });
     }
 
-    // Riot API 키 확인
+    // Riot API 키 확인 및 상세 로깅
     const riotApiKey = process.env.RIOT_API_KEY;
+    console.log('\n=== API 키 상태 확인 ===');
+    console.log(`API 키 존재: ${riotApiKey ? 'YES' : 'NO'}`);
+    console.log(`API 키 길이: ${riotApiKey ? riotApiKey.length : 0}`);
+    console.log(`API 키 형식: ${riotApiKey ? `${riotApiKey.substring(0, 8)}...${riotApiKey.substring(riotApiKey.length - 4)}` : 'N/A'}`);
+    console.log('=============================\n');
+
     if (!riotApiKey) {
       console.error('RIOT_API_KEY 환경변수가 설정되지 않았습니다.');
       return res.status(500).json({
-        error: 'API 설정 오류가 발생했습니다.'
+        error: 'API 설정 오류가 발생했습니다. 환경변수를 확인하세요.',
+        code: 'API_KEY_MISSING'
       });
     }
 
@@ -91,7 +98,8 @@ export default async function handler(req, res) {
 
     if (leagueResponse.ok) {
       leagueData = await leagueResponse.json();
-      console.log('\n=== League API 응답 ===');
+      console.log('\n=== League API 응답 상세 ===');
+      console.log(`응답 상태: ${leagueResponse.status} ${leagueResponse.statusText}`);
       console.log('랭크 데이터 개수:', leagueData.length);
       console.log('전체 데이터:', JSON.stringify(leagueData, null, 2));
 
@@ -99,15 +107,27 @@ export default async function handler(req, res) {
       soloRank = leagueData.find(entry => entry.queueType === 'RANKED_SOLO_5x5') || null;
       flexRank = leagueData.find(entry => entry.queueType === 'RANKED_FLEX_SR') || null;
 
+      console.log('\n=== 랭크 데이터 분석 ===');
+      console.log(`솔로랭크 발견: ${soloRank ? 'YES' : 'NO'}`);
+      console.log(`자유랭크 발견: ${flexRank ? 'YES' : 'NO'}`);
+
       if (soloRank) {
         console.log('\n=== 솔로랭크 정보 ===');
         console.log(`티어: ${soloRank.tier} ${soloRank.rank}`);
         console.log(`LP: ${soloRank.leaguePoints}`);
         console.log(`승/패: ${soloRank.wins}승 ${soloRank.losses}패`);
-        console.log(`승률: ${Math.round((soloRank.wins / (soloRank.wins + soloRank.losses)) * 100)}%`);
+        const winRate = soloRank.wins + soloRank.losses > 0 ?
+          Math.round((soloRank.wins / (soloRank.wins + soloRank.losses)) * 100) : 0;
+        console.log(`승률: ${winRate}%`);
       } else {
         console.log('\n=== 솔로랭크 정보 ===');
-        console.log('솔로랭크 데이터를 찾을 수 없음. 언랭크 상태일 가능성 높음.');
+        console.log('솔로랭크 데이터를 찾을 수 없음.');
+        if (leagueData.length === 0) {
+          console.log('원인: 완전 언랭크 상태 (랭크 게임 미플레이)');
+        } else {
+          console.log('원인: 솔로랭크가 아닌 다른 큐 타입만 존재');
+          console.log('존재하는 큐 타입들:', leagueData.map(entry => entry.queueType));
+        }
       }
 
       if (flexRank) {
@@ -115,9 +135,27 @@ export default async function handler(req, res) {
         console.log(`티어: ${flexRank.tier} ${flexRank.rank}`);
         console.log(`LP: ${flexRank.leaguePoints}`);
         console.log(`승/패: ${flexRank.wins}승 ${flexRank.losses}패`);
+      } else if (!soloRank) {
+        console.log('\n=== 자유랭크 정보 ===');
+        console.log('자유랭크 데이터도 없음. 완전 언랭크 상태.');
       }
+
+      // 언랭크 상태 최종 판단
+      if (!soloRank && !flexRank && leagueData.length === 0) {
+        console.log('\n🚨 최종 판단: 완전 언랭크 플레이어');
+        console.log('- 솔로/듀오 랭크: 없음');
+        console.log('- 자유랭크: 없음');
+        console.log('- 기타 랭크: 없음');
+      }
+
+      console.log('=================================\n');
     } else {
-      console.warn('League API 호출 실패:', leagueResponse.status, await leagueResponse.text());
+      const errorText = await leagueResponse.text();
+      console.error('\n=== League API 호출 실패 ===');
+      console.error(`상태 코드: ${leagueResponse.status}`);
+      console.error(`상태 텍스트: ${leagueResponse.statusText}`);
+      console.error(`오류 내용: ${errorText}`);
+      console.error('===============================\n');
     }
 
     // 4단계: 최근 매치 데이터 조회 (선택적)

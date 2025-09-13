@@ -338,24 +338,56 @@ export const RiotAPI = {
       positions: data.positions
     });
 
-    // 랭크 정보 추출 (솔로 랭크 우선) - 디버그 로깅 추가
-    const soloRank = data.soloRank || data.rankedInfo?.find(rank => rank.queueType === 'RANKED_SOLO_5x5') || data.rankedInfo?.[0];
-    console.log('\n=== 티어 정보 추출 디버그 ===');
-    console.log('soloRank 전체:', soloRank);
-    console.log('data.soloRank:', data.soloRank);
-    console.log('rankedInfo:', data.rankedInfo);
+    // 랭크 정보 추출 (솔로 랭크 우선, 자유랭크 fallback) - 강화된 로직
+    console.log('\n=== 티어 정보 추출 프로세스 ===');
 
-    const tier = soloRank?.tier || data.tier || 'UNRANKED';
-    const division = soloRank?.rank || data.rank || 'I';
-    const lp = soloRank?.leaguePoints || data.leaguePoints || 0;
-    const wins = soloRank?.wins || data.wins || 0;
-    const losses = soloRank?.losses || data.losses || 0;
+    // 1단계: 솔로랭크 확인
+    const soloRank = data.soloRank || data.rankedInfo?.find(rank => rank.queueType === 'RANKED_SOLO_5x5');
+    console.log('1단계 - 솔로랭크 검사:', soloRank ? 'FOUND' : 'NOT_FOUND');
 
-    console.log('추출된 티어 정보:');
-    console.log(`  tier: ${tier}`);
-    console.log(`  division: ${division}`);
-    console.log(`  lp: ${lp}`);
-    console.log(`  wins: ${wins}, losses: ${losses}`);
+    // 2단계: 자유랭크 fallback
+    const flexRank = data.flexRank || data.rankedInfo?.find(rank => rank.queueType === 'RANKED_FLEX_SR');
+    console.log('2단계 - 자유랭크 검사:', flexRank ? 'FOUND' : 'NOT_FOUND');
+
+    // 3단계: 기타 랭크 정보
+    const anyRank = data.rankedInfo?.[0];
+    console.log('3단계 - 기타 랭크 검사:', anyRank ? 'FOUND' : 'NOT_FOUND');
+
+    // 4단계: 최종 랭크 결정 (우선순위: 솔로 > 자유 > 기타)
+    const finalRank = soloRank || flexRank || anyRank;
+    console.log('4단계 - 최종 랭크 결정:', finalRank ? 'SUCCESS' : 'FAILED');
+
+    if (finalRank) {
+      console.log('선택된 랭크 타입:', finalRank.queueType || '알 수 없음');
+      console.log('랭크 상세 정보:', {
+        tier: finalRank.tier,
+        rank: finalRank.rank,
+        lp: finalRank.leaguePoints,
+        wins: finalRank.wins,
+        losses: finalRank.losses
+      });
+    }
+
+    // 티어 정보 추출 (개선된 fallback 체계)
+    const tier = finalRank?.tier || data.tier || 'UNRANKED';
+    const division = finalRank?.rank || data.rank || 'I';
+    const lp = finalRank?.leaguePoints || data.leaguePoints || 0;
+    const wins = finalRank?.wins || data.wins || 0;
+    const losses = finalRank?.losses || data.losses || 0;
+
+    console.log('\n=== 최종 추출된 티어 정보 ===');
+    console.log(`티어: ${tier}`);
+    console.log(`등급: ${division}`);
+    console.log(`LP: ${lp}`);
+    console.log(`전적: ${wins}승 ${losses}패`);
+
+    if (tier === 'UNRANKED') {
+      console.log('⚠️  언랭크 상태 - 랭크 게임을 플레이하지 않았거나 배치고사 미완료');
+    } else {
+      const totalGames = wins + losses;
+      const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+      console.log(`승률: ${winRate}% (총 ${totalGames}게임)`);
+    }
     console.log('=====================================');
 
     // 승률 계산 - 최근 20게임 승률 우선 (algorithm.md 기준)

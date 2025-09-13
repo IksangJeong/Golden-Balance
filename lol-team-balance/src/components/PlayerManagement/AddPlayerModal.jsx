@@ -312,7 +312,14 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
                   fontSize: '0.9rem',
                   border: '1px solid rgba(16, 185, 129, 0.3)'
                 }}>
-                  ✅ 데이터를 성공적으로 불러왔습니다! '수동 입력' 탭에서 확인하고 수정할 수 있습니다.
+                  ✅ 데이터를 성공적으로 불러왔습니다!
+                  <br />
+                  {apiSearch.result.soloRank || apiSearch.result.flexRank ?
+                    '랭크 정보가 확인되었습니다.' :
+                    '⚠️ 언랭크 플레이어입니다 - 수동으로 티어를 설정하세요.'
+                  }
+                  <br />
+                  '수동 입력' 탭에서 확인하고 필요시 수정할 수 있습니다.
                 </div>
               )}
 
@@ -389,11 +396,24 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
                     fontSize: '0.9rem'
                   }}>
                     티어
+                    {formData.tier === 'UNRANKED' && (
+                      <span style={{
+                        color: '#f59e0b',
+                        fontSize: '0.8rem',
+                        marginLeft: '8px'
+                      }}>
+                        (언랭크)
+                      </span>
+                    )}
                   </label>
                   <select
                     className="lol-select"
                     value={formData.tier}
                     onChange={(e) => setFormData({ ...formData, tier: e.target.value })}
+                    style={formData.tier === 'UNRANKED' ? {
+                      borderColor: '#f59e0b',
+                      backgroundColor: 'rgba(245, 158, 11, 0.1)'
+                    } : {}}
                   >
                     {tiers.map(tier => (
                       <option key={tier.value} value={tier.value}>
@@ -401,6 +421,15 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
                       </option>
                     ))}
                   </select>
+                  {formData.tier === 'UNRANKED' && (
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: '#f59e0b',
+                      marginTop: '4px'
+                    }}>
+                      💡 랭크 게임을 플레이하지 않은 플레이어입니다
+                    </div>
+                  )}
                 </div>
 
                 <div>
