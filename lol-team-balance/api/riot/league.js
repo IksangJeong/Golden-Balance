@@ -1,5 +1,5 @@
 // Vercel Function: Riot League API 프록시
-// 경로: /api/riot/league?summonerId=소환사_ID
+// 경로: /api/riot/league?puuid=PUUID
 
 export default async function handler(req, res) {
   // CORS 헤더 설정
@@ -18,13 +18,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { summonerId } = req.query;
+    const { puuid } = req.query;
 
     // 파라미터 검증
-    if (!summonerId) {
+    if (!puuid) {
       return res.status(400).json({
-        error: 'summonerId 파라미터가 필요합니다.',
-        example: '/api/riot/league?summonerId=소환사_ID'
+        error: 'puuid 파라미터가 필요합니다.',
+        example: '/api/riot/league?puuid=PUUID'
       });
     }
 
@@ -37,8 +37,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Riot League API 호출 (한국 서버)
-    const leagueUrl = `https://kr.api.riotgames.com/lol/league/v4/entries/by-summoner/${encodeURIComponent(summonerId)}`;
+    // Riot League API 호출 (한국 서버) - PUUID 기반 엔드포인트
+    const leagueUrl = `https://kr.api.riotgames.com/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`;
 
     const leagueResponse = await fetch(leagueUrl, {
       headers: {

@@ -125,13 +125,13 @@ export default async function handler(req, res) {
     console.log(`소환사 레벨: ${summonerData.summonerLevel}`);
     console.log('=============================');
 
-    // 3단계: League API로 랭크 정보 조회 (Platform Endpoint 사용)
-    const leagueUrl = `https://kr.api.riotgames.com/lol/league/v4/entries/by-summoner/${summonerData.id}`;
+    // 3단계: League API로 랭크 정보 조회 (PUUID 기반 엔드포인트)
+    const leagueUrl = `https://kr.api.riotgames.com/lol/league/v4/entries/by-puuid/${accountData.puuid}`;
 
     console.log('\n=== 3단계: League API 호출 ===');
     console.log(`URL: ${leagueUrl}`);
     console.log(`Platform Endpoint: kr.api.riotgames.com (정확함)`);
-    console.log(`입력 encryptedSummonerId: ${summonerData.id}`);
+    console.log(`입력 PUUID: ${accountData.puuid}`);
     console.log(`⚠️ 중요: 언랭크 플레이어의 경우 빈 배열 [] 응답이 정상임`);
     console.log('==================================');
 
