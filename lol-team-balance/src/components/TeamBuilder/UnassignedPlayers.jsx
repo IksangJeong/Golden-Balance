@@ -54,9 +54,14 @@ const SelectedPlayers = ({ players, onAssignPlayer, onRemoveFromGame }) => {
         flex: '1',
         overflowY: 'auto',
         overflowX: 'hidden',
-        paddingRight: '8px',
-        maxHeight: '400px'
-      }}>
+        paddingRight: '4px',
+        maxHeight: 'calc(100vh - 400px)', // 화면 높이에 따라 동적 조정
+        minHeight: '200px', // 최소 높이 보장
+        scrollbarWidth: 'thin', // Firefox용 얇은 스크롤바
+        scrollbarColor: '#c89b3c rgba(10, 20, 40, 0.3)' // Firefox용 스크롤바 색상
+      }}
+      className="custom-scrollbar"
+      >
         {players.length > 0 ? (
           players.map(player => (
             <PlayerCard

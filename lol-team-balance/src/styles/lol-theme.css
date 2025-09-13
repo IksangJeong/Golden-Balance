@@ -176,12 +176,13 @@
   padding: 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: move;
   transition: all 0.3s ease;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  overflow: hidden; /* 컨테이너를 벗어나지 않도록 제한 */
 }
 
 .player-card:hover {
@@ -309,4 +310,48 @@
   white-space: nowrap;
   z-index: 1000;
   pointer-events: none;
+}
+
+/* 커스텀 스크롤바 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(10, 20, 40, 0.3);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--lol-gold-dark) 0%, var(--lol-gold) 100%);
+  border-radius: 3px;
+  border: 1px solid rgba(200, 155, 60, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--lol-gold) 0%, var(--lol-gold-light) 100%);
+  box-shadow: 0 0 10px rgba(200, 155, 60, 0.4);
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: rgba(10, 20, 40, 0.3);
+}
+
+/* 반응형 컨테이너 최적화 */
+@media (max-width: 1200px) {
+  .custom-scrollbar {
+    max-height: calc(100vh - 450px) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .custom-scrollbar {
+    max-height: calc(100vh - 500px) !important;
+    min-height: 150px !important;
+  }
+
+  .player-card {
+    padding: 6px !important;
+    gap: 4px !important;
+  }
 }

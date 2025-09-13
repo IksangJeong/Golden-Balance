@@ -307,19 +307,34 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
                 <div style={{
                   color: '#10b981',
                   background: 'rgba(16, 185, 129, 0.1)',
-                  padding: '10px',
+                  padding: '12px',
                   borderRadius: '6px',
                   fontSize: '0.9rem',
-                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  lineHeight: '1.4'
                 }}>
-                  ✅ 데이터를 성공적으로 불러왔습니다!
+                  ✅ <strong>API 호출 성공!</strong> 모든 단계가 정상적으로 완료되었습니다.
                   <br />
-                  {apiSearch.result.soloRank || apiSearch.result.flexRank ?
-                    '랭크 정보가 확인되었습니다.' :
-                    '⚠️ 언랭크 플레이어입니다 - 수동으로 티어를 설정하세요.'
-                  }
+
+                  {/* 티어 정보 상태 표시 */}
+                  {apiSearch.result.soloRank ? (
+                    <span style={{ color: '#0ec776', fontWeight: '600' }}>
+                      🏆 솔로랭크: {apiSearch.result.soloRank.tier} {apiSearch.result.soloRank.rank} ({apiSearch.result.soloRank.leaguePoints} LP)
+                    </span>
+                  ) : apiSearch.result.flexRank ? (
+                    <span style={{ color: '#0ec776', fontWeight: '600' }}>
+                      🏆 자유랭크: {apiSearch.result.flexRank.tier} {apiSearch.result.flexRank.rank} ({apiSearch.result.flexRank.leaguePoints} LP)
+                    </span>
+                  ) : (
+                    <span style={{ color: '#f59e0b', fontWeight: '600' }}>
+                      🚫 언랭크 플레이어 (배치고사 미완료 또는 랭크 게임 미참여)
+                    </span>
+                  )}
+
                   <br />
-                  '수동 입력' 탭에서 확인하고 필요시 수정할 수 있습니다.
+                  <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                    📝 '수동 입력' 탭에서 세부 정보를 확인하고 필요시 수정하세요.
+                  </span>
                 </div>
               )}
 
@@ -329,11 +344,20 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
                 marginTop: '10px',
                 lineHeight: '1.4'
               }}>
-                💡 Riot ID로 검색하면 자동으로 티어, 승률, KDA, CS 등의 정보를 가져옵니다.
+                <strong>🔍 API 호출 과정:</strong>
                 <br />
-                📝 Riot ID는 "게임명#태그" 형식입니다 (예: Hide on bush#KR1, Faker#KR1)
+                1️⃣ Account API → PUUID 획득
                 <br />
-                🎮 현재 개발 모드에서는 시뮬레이션 데이터를 생성합니다.
+                2️⃣ Summoner API → 소환사 ID 획득
+                <br />
+                3️⃣ League API → 티어 정보 조회 (언랭크면 빈 배열 반환)
+                <br />
+                4️⃣ Match API → 최근 20게임 통계 계산
+                <br />
+                <br />
+                📝 <strong>Riot ID 형식:</strong> "게임명#태그" (예: Hide on bush#KR1, Faker#KR1)
+                <br />
+                🚫 <strong>언랭크 처리:</strong> 배치고사 미완료 시 빈 배열 응답이 정상입니다
               </div>
             </div>
           </div>

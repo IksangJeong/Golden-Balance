@@ -44,8 +44,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // 1단계: Account API로 PUUID 조회
+    // 1단계: Account API로 PUUID 조회 (Regional Endpoint 사용)
     const accountUrl = `https://asia.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+
+    console.log('\n=== 1단계: Account API 호출 ===');
+    console.log(`URL: ${accountUrl}`);
+    console.log(`Regional Endpoint: asia.api.riotgames.com (정확함)`);
+    console.log('================================');
 
     const accountResponse = await fetch(accountUrl, {
       headers: {
@@ -55,19 +60,41 @@ export default async function handler(req, res) {
     });
 
     if (!accountResponse.ok) {
+      const errorText = await accountResponse.text();
+      console.error('\n=== Account API 실패 ===');
+      console.error(`상태 코드: ${accountResponse.status}`);
+      console.error(`오류 응답: ${errorText}`);
+      console.error('=========================');
+
       if (accountResponse.status === 404) {
         return res.status(404).json({
           error: `플레이어를 찾을 수 없습니다: ${gameName}#${tagLine}`,
-          code: 'PLAYER_NOT_FOUND'
+          code: 'PLAYER_NOT_FOUND',
+          step: 'account_lookup'
         });
       }
-      throw new Error(`Account API 오류: ${accountResponse.status}`);
+      return res.status(500).json({
+        error: `Account API 호출 실패 (${accountResponse.status})`,
+        code: 'ACCOUNT_API_ERROR',
+        step: 'account_lookup',
+        details: errorText
+      });
     }
 
     const accountData = await accountResponse.json();
+    console.log('\n=== Account API 성공 ===');
+    console.log(`PUUID 획득: ${accountData.puuid}`);
+    console.log(`게임명: ${accountData.gameName}#${accountData.tagLine}`);
+    console.log('=========================');
 
-    // 2단계: Summoner API로 소환사 정보 조회
+    // 2단계: Summoner API로 소환사 정보 조회 (Platform Endpoint 사용)
     const summonerUrl = `https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${accountData.puuid}`;
+
+    console.log('\n=== 2단계: Summoner API 호출 ===');
+    console.log(`URL: ${summonerUrl}`);
+    console.log(`Platform Endpoint: kr.api.riotgames.com (정확함)`);
+    console.log(`입력 PUUID: ${accountData.puuid}`);
+    console.log('===================================');
 
     const summonerResponse = await fetch(summonerUrl, {
       headers: {
@@ -77,13 +104,36 @@ export default async function handler(req, res) {
     });
 
     if (!summonerResponse.ok) {
-      throw new Error(`Summoner API 오류: ${summonerResponse.status}`);
+      const errorText = await summonerResponse.text();
+      console.error('\n=== Summoner API 실패 ===');
+      console.error(`상태 코드: ${summonerResponse.status}`);
+      console.error(`오류 응답: ${errorText}`);
+      console.error('============================');
+
+      return res.status(500).json({
+        error: `Summoner API 호출 실패 (${summonerResponse.status})`,
+        code: 'SUMMONER_API_ERROR',
+        step: 'summoner_lookup',
+        details: errorText
+      });
     }
 
     const summonerData = await summonerResponse.json();
+    console.log('\n=== Summoner API 성공 ===');
+    console.log(`encryptedSummonerId 획득: ${summonerData.id}`);
+    console.log(`소환사명: ${summonerData.name}`);
+    console.log(`소환사 레벨: ${summonerData.summonerLevel}`);
+    console.log('=============================');
 
-    // 3단계: League API로 랭크 정보 조회
+    // 3단계: League API로 랭크 정보 조회 (Platform Endpoint 사용)
     const leagueUrl = `https://kr.api.riotgames.com/lol/league/v4/entries/by-summoner/${summonerData.id}`;
+
+    console.log('\n=== 3단계: League API 호출 ===');
+    console.log(`URL: ${leagueUrl}`);
+    console.log(`Platform Endpoint: kr.api.riotgames.com (정확함)`);
+    console.log(`입력 encryptedSummonerId: ${summonerData.id}`);
+    console.log(`⚠️ 중요: 언랭크 플레이어의 경우 빈 배열 [] 응답이 정상임`);
+    console.log('==================================');
 
     const leagueResponse = await fetch(leagueUrl, {
       headers: {
@@ -140,12 +190,19 @@ export default async function handler(req, res) {
         console.log('자유랭크 데이터도 없음. 완전 언랭크 상태.');
       }
 
-      // 언랭크 상태 최종 판단
+      // 언랭크 상태 최종 판단 및 정상 처리
       if (!soloRank && !flexRank && leagueData.length === 0) {
-        console.log('\n🚨 최종 판단: 완전 언랭크 플레이어');
-        console.log('- 솔로/듀오 랭크: 없음');
-        console.log('- 자유랭크: 없음');
-        console.log('- 기타 랭크: 없음');
+        console.log('\n✅ 정상: 언랭크 플레이어 (빈 배열 응답)');
+        console.log('- 솔로/듀오 랭크: 미플레이 (정상)');
+        console.log('- 자유랭크: 미플레이 (정상)');
+        console.log('- 상태: 배치고사 미완료 또는 랭크 게임 미참여');
+        console.log('- 처리 방법: 기본값 UNRANKED로 설정');
+      } else if (soloRank || flexRank) {
+        console.log('\n✅ 정상: 랭크 플레이어 발견');
+        console.log(`- 사용할 랭크: ${soloRank ? '솔로랭크' : '자유랭크'}`);
+      } else {
+        console.log('\n⚠️ 특수 상황: 기타 큐 타입만 존재');
+        console.log('- 알려진 큐 타입들:', leagueData.map(entry => entry.queueType));
       }
 
       console.log('=================================\n');
@@ -411,10 +468,11 @@ export default async function handler(req, res) {
       summonerLevel: summonerData.summonerLevel,
       revisionDate: summonerData.revisionDate,
 
-      // 랭크 정보
-      soloRank: soloRank || null,
-      flexRank: flexRank || null,
-      allRanks: leagueData,
+      // 랭크 정보 (League API v4에서 제공)
+      soloRank: soloRank || null, // RANKED_SOLO_5x5
+      flexRank: flexRank || null, // RANKED_FLEX_SR
+      allRanks: leagueData, // 전체 랭크 배열 (언랭크면 빈 배열)
+      isUnranked: leagueData.length === 0, // 언랭크 여부 명시적 표시
 
       // 최근 경기 통계
       recentStats: recentStats,
@@ -430,18 +488,39 @@ export default async function handler(req, res) {
       dataSource: 'riot_api'
     };
 
-    // 최종 데이터 요약 로그
-    console.log('\n=== 최종 데이터 요약 ===');
-    console.log(`플레이어: ${playerData.riotId}`);
-    console.log(`솔로랭크: ${playerData.soloRank ? `${playerData.soloRank.tier} ${playerData.soloRank.rank} (${playerData.soloRank.leaguePoints} LP)` : '언랭크'}`);
-    console.log(`최근 20게임 승률: ${playerData.recentStats?.winRate || 0}%`);
-    console.log(`평균 KDA: ${playerData.recentStats?.avgKDA || 0}`);
-    console.log(`분당 CS: ${playerData.recentStats?.avgCSPerMin || 0}`);
+    // 최종 데이터 요약 로그 (API 호출 체인 성공 확인)
+    console.log('\n=== 🎉 API 호출 체인 성공! ===');
+    console.log(`✅ 1단계: Account API → PUUID 획득`);
+    console.log(`✅ 2단계: Summoner API → encryptedSummonerId 획득`);
+    console.log(`✅ 3단계: League API → 티어 정보 ${playerData.isUnranked ? '없음(정상)' : '획득'}`);
+    console.log('=====================================\n');
+
+    console.log('=== 📊 최종 플레이어 데이터 ===');
+    console.log(`플레이어: ${playerData.riotId} (레벨 ${playerData.summonerLevel})`);
+
+    // 티어 정보 상세 출력
+    if (playerData.soloRank) {
+      console.log(`🏆 솔로랭크: ${playerData.soloRank.tier} ${playerData.soloRank.rank} (${playerData.soloRank.leaguePoints} LP)`);
+      const soloWinRate = Math.round((playerData.soloRank.wins / (playerData.soloRank.wins + playerData.soloRank.losses)) * 100);
+      console.log(`   전적: ${playerData.soloRank.wins}승 ${playerData.soloRank.losses}패 (승률 ${soloWinRate}%)`);
+    } else if (playerData.flexRank) {
+      console.log(`🏆 자유랭크: ${playerData.flexRank.tier} ${playerData.flexRank.rank} (${playerData.flexRank.leaguePoints} LP)`);
+      const flexWinRate = Math.round((playerData.flexRank.wins / (playerData.flexRank.wins + playerData.flexRank.losses)) * 100);
+      console.log(`   전적: ${playerData.flexRank.wins}승 ${playerData.flexRank.losses}패 (승률 ${flexWinRate}%)`);
+    } else {
+      console.log(`🚫 랭크: UNRANKED (배치고사 미완료 또는 랭크 게임 미참여)`);
+    }
+
+    // 게임 통계 정보
+    console.log(`📈 최근 20게임 승률: ${playerData.recentStats?.winRate || 0}%`);
+    console.log(`⚔️ 평균 KDA: ${playerData.recentStats?.avgKDA || 0}`);
+    console.log(`🥕 분당 CS: ${playerData.recentStats?.avgCSPerMin || 0}`);
+
     const mainPosition = Object.keys(playerData.recentStats?.positions || {}).sort((a, b) =>
       (playerData.recentStats.positions[b] || 0) - (playerData.recentStats.positions[a] || 0))[0] || '알 수 없음';
-    console.log(`주 포지션: ${mainPosition}`);
-    console.log(`포지션 상세:`, playerData.recentStats?.positions);
-    console.log('========================\n');
+    console.log(`🎯 주 포지션: ${mainPosition}`);
+    console.log(`📊 포지션 분포:`, playerData.recentStats?.positions || '없음');
+    console.log('================================\n');
 
     // 성공 응답
     return res.status(200).json({

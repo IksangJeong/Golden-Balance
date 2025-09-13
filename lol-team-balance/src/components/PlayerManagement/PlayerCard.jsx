@@ -25,17 +25,25 @@ const PlayerCard = ({ player, onAssign, onRemove, showAssignButtons }) => {
       ref={setNodeRef}
       style={{
         ...style,
-        padding: '10px',
+        padding: '8px',
         minHeight: '70px',
         minWidth: '0',
         width: '100%',
         maxWidth: '100%',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        overflow: 'hidden' // 컨테이너를 벗어나지 않도록 제한
       }}
       className={`player-card ${isDragging ? 'dragging' : ''}`}
     >
       <div
-        style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '6px',
+          flex: 1,
+          minWidth: 0, // flex 아이템이 축소될 수 있도록 허용
+          overflow: 'hidden' // 내부 콘텐츠 오버플로우 방지
+        }}
         {...listeners}
         {...attributes}
       >
@@ -45,20 +53,24 @@ const PlayerCard = ({ player, onAssign, onRemove, showAssignButtons }) => {
         </span>
 
         {/* Main Content */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          flex: 1,
+          minWidth: 0, // flex 콘텐츠가 축소될 수 있도록
+          overflow: 'hidden' // 텍스트 오버플로우 방지
+        }}>
           {/* Name and API Indicator */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px', minWidth: '0' }}>
             <div style={{
               color: '#f0e6d2',
               fontWeight: '600',
-              fontSize: '0.9rem',
+              fontSize: '0.85rem',
               lineHeight: 1,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               flex: 1,
               minWidth: '0',
-              maxWidth: '250px'
+              maxWidth: '100%' // 부모 컨테이너에 맞춤
             }}>
               {player.name}
             </div>
@@ -77,20 +89,35 @@ const PlayerCard = ({ player, onAssign, onRemove, showAssignButtons }) => {
           </div>
 
           {/* Tier and Role */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '3px' }}>
+          <div style={{
+            display: 'flex',
+            gap: '4px',
+            alignItems: 'center',
+            marginBottom: '3px',
+            minWidth: 0, // flex 아이템 축소 허용
+            overflow: 'hidden' // 오버플로우 방지
+          }}>
             <span className={`tier-badge ${tierColors[player.tier]}`} style={{
-              fontSize: '0.6rem',
-              padding: '1px 4px',
+              fontSize: '0.55rem',
+              padding: '1px 3px',
               lineHeight: 1,
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              maxWidth: '70px', // 최대 너비 제한
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              flex: '0 0 auto' // 고정 크기
             }}>
               {tierDisplay}
             </span>
             <span style={{
               color: '#c89b3c',
-              fontSize: '0.65rem',
+              fontSize: '0.6rem',
               fontWeight: '400',
-              lineHeight: 1
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              flex: '0 0 auto' // 고정 크기
             }}>
               {roleNames[player.mainRole]}
             </span>
@@ -99,43 +126,44 @@ const PlayerCard = ({ player, onAssign, onRemove, showAssignButtons }) => {
           {/* Skill Scores */}
           <div style={{
             display: 'flex',
-            gap: '8px',
+            gap: '4px',
             alignItems: 'center',
             marginBottom: '4px',
-            flexWrap: 'wrap',
-            minWidth: '0'
+            flexWrap: 'nowrap', // 줄바꿈 방지
+            minWidth: '0',
+            overflow: 'hidden' // 오버플로우 숨김
           }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
+              gap: '2px',
               backgroundColor: 'rgba(205, 190, 145, 0.1)',
-              padding: '3px 6px',
-              borderRadius: '4px',
+              padding: '2px 4px',
+              borderRadius: '3px',
               minWidth: 'auto',
               flex: '0 0 auto'
             }}>
-              <span style={{ color: '#cdbe91', fontSize: '0.65rem', fontWeight: '500' }}>
+              <span style={{ color: '#cdbe91', fontSize: '0.55rem', fontWeight: '500' }}>
                 스킬:
               </span>
-              <span style={{ color: '#f0e6d2', fontSize: '0.7rem', fontWeight: '600' }}>
+              <span style={{ color: '#f0e6d2', fontSize: '0.6rem', fontWeight: '600' }}>
                 {skillScore}
               </span>
             </div>
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
+              gap: '2px',
               backgroundColor: 'rgba(205, 190, 145, 0.1)',
-              padding: '3px 6px',
-              borderRadius: '4px',
+              padding: '2px 4px',
+              borderRadius: '3px',
               minWidth: 'auto',
               flex: '0 0 auto'
             }}>
-              <span style={{ color: '#cdbe91', fontSize: '0.65rem', fontWeight: '500' }}>
+              <span style={{ color: '#cdbe91', fontSize: '0.55rem', fontWeight: '500' }}>
                 포지션:
               </span>
-              <span style={{ color: '#f0e6d2', fontSize: '0.7rem', fontWeight: '600' }}>
+              <span style={{ color: '#f0e6d2', fontSize: '0.6rem', fontWeight: '600' }}>
                 {roleScore}
               </span>
             </div>
@@ -150,7 +178,7 @@ const PlayerCard = ({ player, onAssign, onRemove, showAssignButtons }) => {
               flex: '0 0 auto',
               border: '1px solid rgba(205, 190, 145, 0.3)'
             }}>
-              <span style={{ color: '#cdbe91', fontSize: '0.65rem', fontWeight: '500' }}>
+              <span style={{ color: '#cdbe91', fontSize: '0.55rem', fontWeight: '500' }}>
                 총합:
               </span>
               <span style={{
@@ -166,11 +194,12 @@ const PlayerCard = ({ player, onAssign, onRemove, showAssignButtons }) => {
           {/* Performance Stats */}
           <div style={{
             display: 'flex',
-            gap: '8px',
+            gap: '6px',
             alignItems: 'center',
-            fontSize: '0.65rem',
-            flexWrap: 'wrap',
-            minWidth: '0'
+            fontSize: '0.55rem',
+            flexWrap: 'nowrap', // 줄바꿈 방지
+            minWidth: '0',
+            overflow: 'hidden' // 오버플로우 숨김
           }}>
             <span style={{ color: '#cdbe91', whiteSpace: 'nowrap' }}>
               {player.avgKDA?.toFixed(1)} KDA
