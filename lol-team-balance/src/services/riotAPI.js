@@ -272,15 +272,19 @@ export const RiotAPI = {
           ...playerData.data,
           // 기존 코드 호환성을 위한 필드 매핑
           rankedInfo: playerData.data.allRanks || [],
-          // 최근 경기 통계를 recentMatches 형식으로 변환
+          // 최근 경기 통계를 recentMatches 형식으로 변환 (개선된 매핑)
           recentMatches: playerData.data.recentStats ? {
             wins: playerData.data.recentStats.wins,
             total: playerData.data.recentStats.gamesPlayed,
             avgKDA: playerData.data.recentStats.avgKDA,
-            avgCS: playerData.data.recentStats.avgCS,
-            avgVisionScore: playerData.data.recentStats.avgVisionScore,
+            avgKills: playerData.data.recentStats.avgKills,
+            avgDeaths: playerData.data.recentStats.avgDeaths,
+            avgAssists: playerData.data.recentStats.avgAssists,
+            avgCS: playerData.data.recentStats.avgCSPerMin || playerData.data.recentStats.avgCS,
+            avgVisionScore: playerData.data.recentStats.avgVisionScorePerMin || playerData.data.recentStats.avgVisionScore,
             avgDamage: playerData.data.recentStats.avgDamage,
-            avgGold: playerData.data.recentStats.avgGold
+            avgGold: playerData.data.recentStats.avgGold,
+            winRate: playerData.data.recentStats.winRate
           } : null,
           // 포지션 정보
           positions: playerData.data.recentStats?.positions || {}
@@ -345,10 +349,15 @@ export const RiotAPI = {
       roleProficiency[subRole] = Math.min(8, 5 + Math.floor((data.positions[subRole] || 30) / 20));
     }
 
-    // 통계 데이터 추출
+    // 통계 데이터 추출 (개선된 로직)
     const avgKDA = data.recentMatches?.avgKDA || 2.0;
     const csPerMin = data.recentMatches?.avgCS || 5.5;
     const visionScorePerMin = data.recentMatches?.avgVisionScore || 1.2;
+
+    // 추가 통계 데이터
+    const avgKills = data.recentMatches?.avgKills || 5.0;
+    const avgDeaths = data.recentMatches?.avgDeaths || 4.0;
+    const avgAssists = data.recentMatches?.avgAssists || 8.0;
 
     // 서포터인 경우 팀 기여도 계산
     const teamContribution = mainRole === 'SUPPORT'

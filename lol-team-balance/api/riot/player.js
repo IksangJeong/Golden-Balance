@@ -86,14 +86,28 @@ export default async function handler(req, res) {
     });
 
     let leagueData = [];
+    let soloRank = null;
+    let flexRank = null;
+
     if (leagueResponse.ok) {
       leagueData = await leagueResponse.json();
+      console.log('League API 응답:', leagueData); // 디버깅용
+
+      // 솔로랭크와 자유랭크 분리
+      soloRank = leagueData.find(entry => entry.queueType === 'RANKED_SOLO_5x5') || null;
+      flexRank = leagueData.find(entry => entry.queueType === 'RANKED_FLEX_SR') || null;
+
+      console.log('솔로랭크:', soloRank); // 디버깅용
+      console.log('자유랭크:', flexRank); // 디버깅용
+    } else {
+      console.warn('League API 호출 실패:', leagueResponse.status, await leagueResponse.text());
     }
 
     // 4단계: 최근 매치 데이터 조회 (선택적)
     let matchHistory = null;
     try {
-      const matchListUrl = `https://asia.api.riotgames.com/lol/match/v5/matches/by-puuid/${accountData.puuid}/ids?start=0&count=20`;
+      // 솔로랭크 게임만 조회 (queue=420)
+      const matchListUrl = `https://asia.api.riotgames.com/lol/match/v5/matches/by-puuid/${accountData.puuid}/ids?queue=420&start=0&count=20`;
 
       const matchListResponse = await fetch(matchListUrl, {
         headers: {
@@ -105,9 +119,10 @@ export default async function handler(req, res) {
       if (matchListResponse.ok) {
         const matchIds = await matchListResponse.json();
 
-        // 최근 5경기 정보만 가져오기 (API 호출 최소화)
-        const recentMatches = matchIds.slice(0, 5);
+        // 최근 15경기 정보 가져오기 (정확한 포지션 분석을 위해)
+        const recentMatches = matchIds.slice(0, Math.min(15, matchIds.length));
         const matchDetails = [];
+        console.log(`분석할 매치 수: ${recentMatches.length}`); // 디버깅용
 
         for (const matchId of recentMatches) {
           try {
@@ -125,9 +140,18 @@ export default async function handler(req, res) {
                 participant => participant.puuid === accountData.puuid
               );
 
-              if (playerData) {
+              if (playerData && matchData.info.gameDuration >= 900) { // 15분 이상 게임만
+                // 포지션 결정 로직 개선
+                let position = playerData.teamPosition || playerData.individualPosition || '';
+
+                // 빈 포지션이나 UTILITY인 경우 서포터로 처리
+                if (!position || position === 'UTILITY') {
+                  position = 'SUPPORT';
+                }
+
                 matchDetails.push({
                   matchId: matchId,
+                  queueId: matchData.info.queueId,
                   gameMode: matchData.info.gameMode,
                   gameDuration: matchData.info.gameDuration,
                   win: playerData.win,
@@ -135,11 +159,17 @@ export default async function handler(req, res) {
                   deaths: playerData.deaths,
                   assists: playerData.assists,
                   championName: playerData.championName,
+                  championId: playerData.championId,
                   totalMinionsKilled: playerData.totalMinionsKilled,
+                  neutralMinionsKilled: playerData.neutralMinionsKilled || 0,
                   visionScore: playerData.visionScore,
                   totalDamageDealtToChampions: playerData.totalDamageDealtToChampions,
                   goldEarned: playerData.goldEarned,
-                  teamPosition: playerData.teamPosition
+                  // 포지션 정보 개선
+                  teamPosition: position,
+                  individualPosition: playerData.individualPosition || '',
+                  role: playerData.role || '',
+                  lane: playerData.lane || ''
                 });
               }
             }
@@ -154,11 +184,7 @@ export default async function handler(req, res) {
       console.warn('매치 히스토리 조회 실패:', matchError);
     }
 
-    // 데이터 통합 및 가공
-    const soloRank = leagueData.find(rank => rank.queueType === 'RANKED_SOLO_5x5');
-    const flexRank = leagueData.find(rank => rank.queueType === 'RANKED_FLEX_SR');
-
-    // 최근 경기 통계 계산
+    // 최근 경기 통계 계산 (개선된 로직)
     let recentStats = null;
     if (matchHistory && matchHistory.length > 0) {
       const wins = matchHistory.filter(match => match.win).length;
@@ -166,30 +192,47 @@ export default async function handler(req, res) {
       const totalDeaths = matchHistory.reduce((sum, match) => sum + match.deaths, 0);
       const totalAssists = matchHistory.reduce((sum, match) => sum + match.assists, 0);
       const totalCS = matchHistory.reduce((sum, match) => sum + match.totalMinionsKilled, 0);
+      const totalJungleCS = matchHistory.reduce((sum, match) => sum + (match.neutralMinionsKilled || 0), 0);
       const totalVision = matchHistory.reduce((sum, match) => sum + match.visionScore, 0);
       const totalDamage = matchHistory.reduce((sum, match) => sum + match.totalDamageDealtToChampions, 0);
       const totalGold = matchHistory.reduce((sum, match) => sum + match.goldEarned, 0);
       const totalGameTime = matchHistory.reduce((sum, match) => sum + match.gameDuration, 0);
 
-      // 포지션 통계
+      // 포지션 통계 (개선된 로직)
       const positionCounts = {};
       matchHistory.forEach(match => {
-        const position = match.teamPosition || 'UNKNOWN';
-        positionCounts[position] = (positionCounts[position] || 0) + 1;
+        const position = match.teamPosition;
+        if (position && position !== 'UNKNOWN') {
+          positionCounts[position] = (positionCounts[position] || 0) + 1;
+        }
       });
+
+      // 분당 통계 계산
+      const totalGameMinutes = totalGameTime / 60;
+      const avgGameMinutes = totalGameMinutes / matchHistory.length;
 
       recentStats = {
         gamesPlayed: matchHistory.length,
         wins: wins,
         winRate: Math.round((wins / matchHistory.length) * 100),
-        avgKDA: totalDeaths > 0 ? ((totalKills + totalAssists) / totalDeaths) : (totalKills + totalAssists),
-        avgCS: totalCS / matchHistory.length,
-        avgVisionScore: totalVision / matchHistory.length,
-        avgDamage: totalDamage / matchHistory.length,
-        avgGold: totalGold / matchHistory.length,
-        avgGameTime: totalGameTime / matchHistory.length,
+        // KDA 계산 개선
+        avgKDA: totalDeaths > 0 ? Number(((totalKills + totalAssists) / totalDeaths).toFixed(2)) : 99.0,
+        avgKills: Number((totalKills / matchHistory.length).toFixed(1)),
+        avgDeaths: Number((totalDeaths / matchHistory.length).toFixed(1)),
+        avgAssists: Number((totalAssists / matchHistory.length).toFixed(1)),
+        // 분당 CS 계산
+        avgCS: Number((totalCS / matchHistory.length).toFixed(1)),
+        avgCSPerMin: Number(((totalCS + totalJungleCS) / totalGameMinutes).toFixed(1)),
+        // 분당 비전 스코어
+        avgVisionScore: Number((totalVision / matchHistory.length).toFixed(1)),
+        avgVisionScorePerMin: Number((totalVision / totalGameMinutes).toFixed(2)),
+        avgDamage: Math.round(totalDamage / matchHistory.length),
+        avgGold: Math.round(totalGold / matchHistory.length),
+        avgGameTime: Math.round(avgGameMinutes),
         positions: positionCounts
       };
+
+      console.log('계산된 통계:', recentStats); // 디버깅용
     }
 
     // 통합 응답 데이터
