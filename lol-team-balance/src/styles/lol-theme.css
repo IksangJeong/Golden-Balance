@@ -1,0 +1,312 @@
+/* LOL 테마 스타일 */
+
+:root {
+  /* LOL 색상 팔레트 */
+  --lol-gold: #c89b3c;
+  --lol-gold-light: #f0e6d2;
+  --lol-gold-dark: #785a28;
+  --lol-blue: #0c223f;
+  --lol-blue-light: #0596aa;
+  --lol-blue-dark: #091428;
+  --lol-cyan: #0ac8b9;
+  --lol-red: #c8354e;
+  --lol-purple: #5c3a8e;
+  
+  /* 배경 색상 */
+  --bg-primary: #010a13;
+  --bg-secondary: #0a1428;
+  --bg-tertiary: #0c1f3d;
+  
+  /* 테두리 색상 */
+  --border-gold: #c89b3c;
+  --border-blue: #0596aa;
+  --border-default: rgba(200, 155, 60, 0.3);
+}
+
+/* LOL 스타일 컨테이너 */
+.lol-container {
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 배경 이펙트 */
+.lol-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(12, 34, 63, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(5, 150, 170, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(200, 155, 60, 0.1) 0%, transparent 50%);
+}
+
+/* 글래스모피즘 카드 */
+.glass-card {
+  background: rgba(10, 20, 40, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 
+    0 8px 32px 0 rgba(0, 0, 0, 0.37),
+    inset 0 1px 0 0 rgba(200, 155, 60, 0.1);
+}
+
+.glass-card:hover {
+  border-color: var(--border-gold);
+  box-shadow: 
+    0 8px 32px 0 rgba(200, 155, 60, 0.2),
+    inset 0 1px 0 0 rgba(200, 155, 60, 0.2);
+}
+
+/* LOL 스타일 버튼 */
+.lol-button {
+  background: linear-gradient(135deg, #1e2328 0%, #0c1f3d 100%);
+  border: 2px solid var(--border-gold);
+  color: var(--lol-gold-light);
+  padding: 12px 24px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.lol-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(200, 155, 60, 0.4), transparent);
+  transition: left 0.5s ease;
+}
+
+.lol-button:hover::before {
+  left: 100%;
+}
+
+.lol-button:hover {
+  background: linear-gradient(135deg, var(--lol-gold-dark) 0%, var(--lol-gold) 100%);
+  color: var(--bg-primary);
+  box-shadow: 0 4px 15px rgba(200, 155, 60, 0.5);
+}
+
+.lol-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 팀 컬럼 스타일 */
+.team-column {
+  background: linear-gradient(180deg, rgba(10, 20, 40, 0.9) 0%, rgba(5, 10, 20, 0.9) 100%);
+  border: 2px solid var(--border-default);
+  border-radius: 12px;
+  padding: 20px;
+  min-height: 600px;
+}
+
+.team-column-header {
+  background: linear-gradient(90deg, var(--lol-gold-dark) 0%, var(--lol-gold) 50%, var(--lol-gold-dark) 100%);
+  color: var(--bg-primary);
+  padding: 10px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  border-radius: 8px 8px 0 0;
+  margin: -20px -20px 20px -20px;
+}
+
+/* 플레이어 슬롯 */
+.player-slot {
+  background: rgba(10, 20, 40, 0.6);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 10px;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.player-slot.empty {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.player-slot.occupied {
+  background: linear-gradient(135deg, rgba(10, 20, 40, 0.8) 0%, rgba(20, 30, 50, 0.8) 100%);
+  border-color: var(--border-gold);
+}
+
+.player-slot:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 10px rgba(200, 155, 60, 0.3);
+}
+
+/* 역할 라벨 */
+.role-label {
+  background: linear-gradient(135deg, var(--lol-gold-dark) 0%, var(--lol-gold) 100%);
+  color: var(--bg-primary);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  margin-right: 15px;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* 플레이어 카드 */
+.player-card {
+  background: linear-gradient(135deg, rgba(10, 20, 40, 0.9) 0%, rgba(5, 10, 20, 0.9) 100%);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: move;
+  transition: all 0.3s ease;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.player-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 15px rgba(200, 155, 60, 0.4);
+  z-index: 10;
+}
+
+.player-card.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+/* 티어 배지 */
+.tier-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 밸런스 인디케이터 */
+.balance-indicator {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 700;
+  text-align: center;
+  margin: 5px 0;
+}
+
+.balance-indicator.golden {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #1a1a1a;
+  border: 2px solid #ffd700;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+.balance-indicator.fair {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  color: white;
+  border: 2px solid #3b82f6;
+}
+
+.balance-indicator.poor {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: white;
+  border: 2px solid #ef4444;
+}
+
+/* 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--border-gold);
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* 입력 필드 */
+.lol-input {
+  background: rgba(10, 20, 40, 0.8);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 10px 15px;
+  color: var(--lol-gold-light);
+  font-size: 1rem;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.lol-input:focus {
+  outline: none;
+  border-color: var(--border-gold);
+  box-shadow: 0 0 10px rgba(200, 155, 60, 0.3);
+}
+
+.lol-select {
+  background: rgba(10, 20, 40, 0.8);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 10px 15px;
+  color: var(--lol-gold-light);
+  font-size: 1rem;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.lol-select:focus {
+  outline: none;
+  border-color: var(--border-gold);
+  box-shadow: 0 0 10px rgba(200, 155, 60, 0.3);
+}
+
+/* 툴팁 */
+.tooltip {
+  position: absolute;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-gold);
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: var(--lol-gold-light);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+}
