@@ -223,9 +223,10 @@ export const RiotAPI = {
    * Riot ID로 플레이어 정보 검색
    * @param {string} riotId - Riot ID (gameName#tagLine)
    * @param {string} region - 지역 (kr, na1, euw1 등)
+   * @param {boolean} forceRefresh - 캐시 무시하고 강제 재호출
    * @returns {Promise<Object>} - 플레이어 정보
    */
-  async searchSummoner(riotId, region = 'kr') {
+  async searchSummoner(riotId, region = 'kr', forceRefresh = false) {
     // Riot ID 유효성 검사
     const validation = validateRiotId(riotId);
     if (!validation.valid) {
@@ -238,10 +239,22 @@ export const RiotAPI = {
     const { gameName, tagLine } = validation;
     const cacheKey = `riot_account_${region}_${gameName.toLowerCase()}_${tagLine.toLowerCase()}`;
 
-    // 캐시 확인
-    const cached = apiCache.get(cacheKey);
-    if (cached) {
-      return { success: true, data: cached };
+    // 캐시 확인 (forceRefresh가 true면 캐시 무시)
+    if (!forceRefresh) {
+      const cached = apiCache.get(cacheKey);
+      if (cached) {
+        console.log(`💾 캐시된 데이터 사용: ${riotId}`);
+        return { success: true, data: cached };
+      }
+    } else {
+      console.log(`🔄 강제 새로고침 모드: 캐시 무시하고 API 재호출`);
+      // 기존 캐시 삭제
+      apiCache.cache.delete(cacheKey);
+      try {
+        localStorage.removeItem(`riot_cache_${cacheKey}`);
+      } catch (error) {
+        // localStorage 접근 실패는 무시
+      }
     }
 
     try {
@@ -313,10 +326,59 @@ export const RiotAPI = {
 
       return { success: true, data };
     } catch (error) {
-      console.error('Riot ID 검색 실패:', error);
+      console.error('\n=== 🚨 Riot ID 검색 실패 ===');
+      console.error(`❌ 오류 유형: ${error.name || 'Unknown'}`);
+      console.error(`❌ 오류 메시지: ${error.message}`);
+      console.error(`❌ 요청 정보: ${riotId} (${region})`);
+
+      // 오류 유형별 상세 정보 제공
+      let detailedError = error.message;
+      let troubleshooting = [];
+
+      if (error.message.includes('404') || error.message.includes('플레이어 정보를 불러올 수 없습니다: 404')) {
+        detailedError = `플레이어 "${riotId}"를 찾을 수 없습니다.`;
+        troubleshooting = [
+          '1. Riot ID 형식을 확인하세요 (예: 닉네임#KR1)',
+          '2. 태그라인이 정확한지 확인하세요',
+          '3. 최근에 닉네임을 변경했다면 시간을 두고 재시도하세요'
+        ];
+      } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+        detailedError = 'API 키 권한 문제가 발생했습니다.';
+        troubleshooting = [
+          '1. Riot API 키가 만료되었을 수 있습니다',
+          '2. API 키의 허용된 도메인을 확인하세요',
+          '3. Rate Limit을 초과했을 수 있습니다'
+        ];
+      } else if (error.message.includes('500') || error.message.includes('502') || error.message.includes('503')) {
+        detailedError = 'Riot 서버에 일시적인 문제가 발생했습니다.';
+        troubleshooting = [
+          '1. 잠시 후 다시 시도해주세요',
+          '2. Riot 서버 상태를 확인해보세요',
+          '3. 계속 문제가 발생하면 캐시를 삭제해보세요'
+        ];
+      } else if (error.message.includes('timeout') || error.message.includes('네트워크')) {
+        detailedError = '네트워크 연결 문제가 발생했습니다.';
+        troubleshooting = [
+          '1. 인터넷 연결을 확인하세요',
+          '2. 방화벽이나 보안 프로그램을 확인하세요',
+          '3. VPN 사용 시 해제하고 재시도하세요'
+        ];
+      }
+
+      console.error(`💡 상세 설명: ${detailedError}`);
+      if (troubleshooting.length > 0) {
+        console.error('🔧 해결 방법:');
+        troubleshooting.forEach(tip => console.error(`   ${tip}`));
+      }
+      console.error('===================================\n');
+
       return {
         success: false,
-        error: error.message || 'Riot ID 검색 중 오류가 발생했습니다.'
+        error: detailedError,
+        troubleshooting: troubleshooting,
+        originalError: error.message,
+        riotId: riotId,
+        region: region
       };
     }
   },
@@ -328,15 +390,64 @@ export const RiotAPI = {
    * @returns {Object} - 플레이어 프로필 객체
    */
   convertToPlayerProfile(apiData, playerName) {
+    // 입력 데이터 유효성 검사
+    if (!apiData) {
+      console.error('❌ convertToPlayerProfile: apiData가 null/undefined');
+      throw new Error('API 데이터가 제공되지 않았습니다.');
+    }
+
+    if (!playerName || typeof playerName !== 'string') {
+      console.error('❌ convertToPlayerProfile: playerName이 유효하지 않음');
+      throw new Error('플레이어 이름이 유효하지 않습니다.');
+    }
+
     const data = apiData;
 
-    console.log('\n=== 프로필 변환 시작 ===');
-    console.log('🔍 원본 API 데이터 구조 검사:');
+    console.log('\n=== 📋 프로필 변환 시작 (riotAPI.js) ===');
+    console.log(`🎯 변환 대상: ${playerName}`);
+    console.log('🔍 받은 원본 API 데이터 구조 상세 검사:');
     console.log('  - soloRank:', data.soloRank ? 'EXISTS' : 'NULL');
     console.log('  - flexRank:', data.flexRank ? 'EXISTS' : 'NULL');
     console.log('  - allRanks:', data.allRanks ? `ARRAY[${data.allRanks.length}]` : 'NULL');
     console.log('  - isUnranked:', data.isUnranked ? 'TRUE' : 'FALSE');
     console.log('  - recentStats:', data.recentStats ? 'EXISTS' : 'NULL');
+
+    // 중요 필드 유효성 검사
+    if (!data.puuid && !data.riotId && !data.gameName) {
+      console.error('❌ 필수 식별자 필드가 누락됨:', {
+        puuid: !!data.puuid,
+        riotId: !!data.riotId,
+        gameName: !!data.gameName
+      });
+      throw new Error('플레이어 식별 정보가 부족합니다.');
+    }
+
+    // allRanks 배열 내용 상세 검사 (가장 중요한 부분)
+    if (data.allRanks) {
+      console.log('\n🔎 allRanks 배열 내용 상세 분석:');
+      if (data.allRanks.length === 0) {
+        console.log('  ⚠️ allRanks가 빈 배열 → 언랭크 상태');
+      } else {
+        data.allRanks.forEach((rank, index) => {
+          console.log(`  [${index}] ${rank.queueType}:`);
+          console.log(`      → tier: "${rank.tier}" (타입: ${typeof rank.tier})`);
+          console.log(`      → rank: "${rank.rank}" (타입: ${typeof rank.rank})`);
+          console.log(`      → leaguePoints: ${rank.leaguePoints}`);
+          console.log(`      → 유효성: ${rank.tier && rank.queueType ? '✅' : '❌'}`);
+        });
+      }
+    } else {
+      console.log('  ❌ allRanks가 undefined/null → 심각한 데이터 전달 오류!');
+    }
+
+    // soloRank 직접 필드 검사
+    if (data.soloRank) {
+      console.log('\n📊 soloRank 직접 필드 검사:');
+      console.log(`  - queueType: "${data.soloRank.queueType}"`);
+      console.log(`  - tier: "${data.soloRank.tier}"`);
+      console.log(`  - rank: "${data.soloRank.rank}"`);
+      console.log(`  - leaguePoints: ${data.soloRank.leaguePoints}`);
+    }
 
     if (data.soloRank) {
       console.log('✅ 솔로랭크 데이터:', {
@@ -360,51 +471,89 @@ export const RiotAPI = {
     console.log('\n=== 티어 정보 추출 프로세스 ===');
 
     // 1단계: 솔로랭크 확인 (player.js에서 오는 데이터 구조에 맞게 수정)
-    const soloRank = data.soloRank || data.allRanks?.find(rank => rank.queueType === 'RANKED_SOLO_5x5');
-    console.log('1단계 - 솔로랭크 검사:', soloRank ? 'FOUND' : 'NOT_FOUND');
+    console.log('\n🔍 1단계 - 솔로랭크 검사:');
+    console.log(`  - data.soloRank: ${data.soloRank ? 'EXISTS' : 'NULL'}`);
+    console.log(`  - allRanks에서 찾기 시도...`);
+
+    const soloFromArray = data.allRanks?.find(rank => rank.queueType === 'RANKED_SOLO_5x5');
+    console.log(`  - allRanks.find(RANKED_SOLO_5x5): ${soloFromArray ? 'FOUND' : 'NOT_FOUND'}`);
+
+    const soloRank = data.soloRank || soloFromArray;
+    console.log(`  - 최종 솔로랭크: ${soloRank ? 'FOUND' : 'NOT_FOUND'}`);
+
+    if (soloRank) {
+      console.log(`  - 솔로랭크 상세: ${soloRank.tier} ${soloRank.rank} ${soloRank.leaguePoints}LP`);
+    }
 
     // 2단계: 자유랭크 fallback
-    const flexRank = data.flexRank || data.allRanks?.find(rank => rank.queueType === 'RANKED_FLEX_SR');
-    console.log('2단계 - 자유랭크 검사:', flexRank ? 'FOUND' : 'NOT_FOUND');
+    console.log('\n🔍 2단계 - 자유랭크 검사:');
+    console.log(`  - data.flexRank: ${data.flexRank ? 'EXISTS' : 'NULL'}`);
+
+    const flexFromArray = data.allRanks?.find(rank => rank.queueType === 'RANKED_FLEX_SR');
+    console.log(`  - allRanks.find(RANKED_FLEX_SR): ${flexFromArray ? 'FOUND' : 'NOT_FOUND'}`);
+
+    const flexRank = data.flexRank || flexFromArray;
+    console.log(`  - 최종 자유랭크: ${flexRank ? 'FOUND' : 'NOT_FOUND'}`);
 
     // 3단계: 기타 랭크 정보
+    console.log('\n🔍 3단계 - 기타 랭크 검사:');
     const anyRank = data.allRanks?.[0];
-    console.log('3단계 - 기타 랭크 검사:', anyRank ? 'FOUND' : 'NOT_FOUND');
+    console.log(`  - 첫 번째 랭크 엔트리: ${anyRank ? 'FOUND' : 'NOT_FOUND'}`);
+    if (anyRank) {
+      console.log(`  - 큐타입: ${anyRank.queueType}, 티어: ${anyRank.tier} ${anyRank.rank}`);
+    }
 
     // 4단계: 최종 랭크 결정 (우선순위: 솔로 > 자유 > 기타)
+    console.log('\n🏆 4단계 - 최종 랭크 결정:');
+    console.log(`  - 솔로랭크: ${soloRank ? 'AVAILABLE' : 'NULL'}`);
+    console.log(`  - 자유랭크: ${flexRank ? 'AVAILABLE' : 'NULL'}`);
+    console.log(`  - 기타랭크: ${anyRank ? 'AVAILABLE' : 'NULL'}`);
+
     const finalRank = soloRank || flexRank || anyRank;
-    console.log('4단계 - 최종 랭크 결정:', finalRank ? 'SUCCESS' : 'FAILED');
+    console.log(`  - 최종 선택: ${finalRank ? 'SUCCESS' : 'FAILED'}`);
 
     if (finalRank) {
-      console.log('선택된 랭크 타입:', finalRank.queueType || '알 수 없음');
-      console.log('랭크 상세 정보:', {
-        tier: finalRank.tier,
-        rank: finalRank.rank,
-        lp: finalRank.leaguePoints,
-        wins: finalRank.wins,
-        losses: finalRank.losses
-      });
+      console.log(`  - 선택된 랭크 소스: ${soloRank ? 'soloRank' : flexRank ? 'flexRank' : 'anyRank'}`);
+      console.log(`  - 큐 타입: ${finalRank.queueType || '알 수 없음'}`);
+      console.log(`  - 티어 정보: ${finalRank.tier} ${finalRank.rank} ${finalRank.leaguePoints}LP`);
+      console.log(`  - 승패: ${finalRank.wins}승 ${finalRank.losses}패`);
+    } else {
+      console.log('  - 💥 심각한 오류: 모든 랭크 소스에서 데이터를 찾을 수 없음!');
     }
 
     // 티어 정보 추출 (개선된 fallback 체계)
+    console.log('\n🎯 5단계 - 티어 정보 최종 추출:');
+
     const tier = finalRank?.tier || data.tier || 'UNRANKED';
     const division = finalRank?.rank || data.rank || 'I';
     const lp = finalRank?.leaguePoints || data.leaguePoints || 0;
     const wins = finalRank?.wins || data.wins || 0;
     const losses = finalRank?.losses || data.losses || 0;
 
-    console.log('\n=== 최종 추출된 티어 정보 ===');
-    console.log(`티어: ${tier}`);
-    console.log(`등급: ${division}`);
-    console.log(`LP: ${lp}`);
-    console.log(`전적: ${wins}승 ${losses}패`);
+    console.log(`  - 사용된 소스: ${finalRank?.tier ? 'finalRank.tier' : data.tier ? 'data.tier' : 'DEFAULT'}`);
+    console.log(`  - 추출된 값들:`);
+    console.log(`    → tier: "${tier}" (${typeof tier})`);
+    console.log(`    → division: "${division}" (${typeof division})`);
+    console.log(`    → lp: ${lp}`);
+    console.log(`    → wins/losses: ${wins}/${losses}`);
+
+    console.log('\n=== ✨ 최종 추출된 티어 정보 ===');
+    console.log(`🏅 티어: ${tier}`);
+    console.log(`🎖️ 등급: ${division}`);
+    console.log(`💎 LP: ${lp}`);
+    console.log(`⚔️ 전적: ${wins}승 ${losses}패`);
 
     if (tier === 'UNRANKED') {
       console.log('⚠️  언랭크 상태 - 랭크 게임을 플레이하지 않았거나 배치고사 미완료');
+      console.log('❓ 문제 확인 포인트:');
+      console.log('   1. League API가 빈 배열을 반환했나?');
+      console.log('   2. queueType이 RANKED_SOLO_5x5가 아닌가?');
+      console.log('   3. 데이터 매핑 과정에서 누락되었나?');
     } else {
       const totalGames = wins + losses;
       const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-      console.log(`승률: ${winRate}% (총 ${totalGames}게임)`);
+      console.log(`📊 승률: ${winRate}% (총 ${totalGames}게임)`);
+      console.log('✅ 티어 정보 추출 성공!');
     }
     console.log('=====================================');
 
@@ -552,12 +701,60 @@ export const RiotAPI = {
   },
 
   /**
-   * 캐시 관리
+   * 캐시 관리 (디버깅 기능 강화)
    */
   cache: {
-    clear: () => apiCache.clear(),
+    // 전체 캐시 삭제
+    clear: () => {
+      console.log('🗑️ 전체 API 캐시를 삭제합니다...');
+      const clearedCount = apiCache.cache.size;
+      apiCache.clear();
+      console.log(`✅ ${clearedCount}개의 캐시 항목이 삭제되었습니다.`);
+    },
+
+    // 특정 키 캐시 조회
     get: (key) => apiCache.get(key),
-    set: (key, data, duration) => apiCache.set(key, data, duration)
+
+    // 캐시 설정
+    set: (key, data, duration) => apiCache.set(key, data, duration),
+
+    // 특정 플레이어 캐시만 삭제
+    clearPlayer: (riotId) => {
+      console.log(`🗑️ ${riotId} 플레이어 캐시를 삭제합니다...`);
+      const { gameName, tagLine } = parseRiotId(riotId);
+      const cacheKey = `riot_account_kr_${gameName.toLowerCase()}_${tagLine.toLowerCase()}`;
+
+      const existed = apiCache.cache.has(cacheKey);
+      apiCache.cache.delete(cacheKey);
+
+      try {
+        localStorage.removeItem(`riot_cache_${cacheKey}`);
+      } catch (error) {
+        console.warn('localStorage 캐시 삭제 실패:', error);
+      }
+
+      console.log(`${existed ? '✅' : '⚠️'} ${riotId} 캐시 삭제 ${existed ? '완료' : '(캐시가 존재하지 않았음)'}`);
+      return existed;
+    },
+
+    // 캐시 상태 확인
+    status: () => {
+      const memoryCount = apiCache.cache.size;
+      let storageCount = 0;
+
+      try {
+        const keys = Object.keys(localStorage);
+        storageCount = keys.filter(key => key.startsWith('riot_cache_')).length;
+      } catch (error) {
+        console.warn('localStorage 접근 실패:', error);
+      }
+
+      console.log('📊 캐시 현황:');
+      console.log(`  - 메모리 캐시: ${memoryCount}개 항목`);
+      console.log(`  - localStorage: ${storageCount}개 항목`);
+
+      return { memory: memoryCount, storage: storageCount };
+    }
   },
 
   /**
@@ -570,7 +767,98 @@ export const RiotAPI = {
   /**
    * 현재 설정 반환
    */
-  getConfig: () => ({ ...RIOT_API_CONFIG })
+  getConfig: () => ({ ...RIOT_API_CONFIG }),
+
+  /**
+   * 디버깅 헬퍼 함수들 (문제 진단용)
+   */
+  debug: {
+    // 특정 플레이어의 API 데이터 검사
+    async checkPlayerData(riotId, forceRefresh = false) {
+      console.log(`\n=== 🔍 ${riotId} 디버깅 검사 시작 ===`);
+
+      try {
+        console.log('1️⃣ 캐시 상태 확인...');
+        RiotAPI.cache.status();
+
+        console.log('\n2️⃣ API 호출 시작...');
+        const result = await RiotAPI.searchSummoner(riotId, 'kr', forceRefresh);
+
+        if (!result.success) {
+          console.log('❌ API 호출 실패:', result.error);
+          return result;
+        }
+
+        console.log('\n3️⃣ 받은 데이터 구조 검사...');
+        const data = result.data;
+        console.log('📊 데이터 유효성:');
+        console.log(`  - soloRank: ${data.soloRank ? '✅' : '❌'}`);
+        console.log(`  - allRanks: ${data.allRanks?.length > 0 ? `✅ (${data.allRanks.length}개)` : '❌ (빈 배열)'}`);
+        console.log(`  - isUnranked: ${data.isUnranked ? '⚠️ (언랭크)' : '✅'}`);
+
+        if (data.allRanks?.length > 0) {
+          console.log('\n📋 랭크 데이터 상세:');
+          data.allRanks.forEach((rank, i) => {
+            console.log(`  [${i}] ${rank.queueType}: ${rank.tier} ${rank.rank} (${rank.leaguePoints}LP)`);
+          });
+        }
+
+        console.log('\n4️⃣ 프로필 변환 테스트...');
+        try {
+          const profile = RiotAPI.convertToPlayerProfile(data, 'TEST');
+          console.log(`✅ 변환 성공 - 최종 티어: ${profile.tier} ${profile.division}`);
+          console.log(`📊 총점: ${profile.overallScore}/150`);
+        } catch (convertError) {
+          console.log(`❌ 변환 실패:`, convertError.message);
+        }
+
+        console.log('=== 디버깅 검사 완료 ===\n');
+        return result;
+
+      } catch (error) {
+        console.log(`❌ 디버깅 검사 중 오류:`, error.message);
+        return { success: false, error: error.message };
+      }
+    },
+
+    // 캐시와 API 데이터 비교
+    async compareCacheAndAPI(riotId) {
+      console.log(`\n=== 📊 ${riotId} 캐시-API 비교 ===`);
+
+      // 캐시된 데이터 확인
+      console.log('1️⃣ 캐시된 데이터 확인...');
+      const cachedResult = await RiotAPI.searchSummoner(riotId, 'kr', false);
+      console.log(`캐시 결과: ${cachedResult.success ? '성공' : '실패'}`);
+
+      // 강제 새로고침으로 API 데이터 확인
+      console.log('\n2️⃣ API 직접 호출...');
+      const freshResult = await RiotAPI.searchSummoner(riotId, 'kr', true);
+      console.log(`API 결과: ${freshResult.success ? '성공' : '실패'}`);
+
+      if (cachedResult.success && freshResult.success) {
+        console.log('\n3️⃣ 데이터 비교...');
+        const cached = cachedResult.data;
+        const fresh = freshResult.data;
+
+        console.log('티어 정보 비교:');
+        console.log(`  캐시: ${cached.soloRank?.tier || 'UNRANKED'} ${cached.soloRank?.rank || ''}`);
+        console.log(`  API:  ${fresh.soloRank?.tier || 'UNRANKED'} ${fresh.soloRank?.rank || ''}`);
+        console.log(`  일치: ${cached.soloRank?.tier === fresh.soloRank?.tier ? '✅' : '❌'}`);
+      }
+
+      console.log('=== 비교 완료 ===\n');
+    },
+
+    // 전체 진단 실행
+    async fullDiagnosis(riotId) {
+      console.log(`\n🩺 ${riotId} 전체 진단 시작\n`);
+
+      await this.checkPlayerData(riotId, false);
+      await this.compareCacheAndAPI(riotId);
+
+      console.log('🎉 전체 진단 완료!\n');
+    }
+  }
 };
 
 export default RiotAPI;

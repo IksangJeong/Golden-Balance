@@ -148,10 +148,28 @@ export default async function handler(req, res) {
 
     if (leagueResponse.ok) {
       leagueData = await leagueResponse.json();
-      console.log('\n=== League API 응답 상세 ===');
-      console.log(`응답 상태: ${leagueResponse.status} ${leagueResponse.statusText}`);
-      console.log('랭크 데이터 개수:', leagueData.length);
-      console.log('전체 데이터:', JSON.stringify(leagueData, null, 2));
+      console.log('\n=== League API 응답 상세 분석 ===');
+      console.log(`✅ 응답 상태: ${leagueResponse.status} ${leagueResponse.statusText}`);
+      console.log(`📊 랭크 데이터 개수: ${leagueData.length}`);
+      console.log(`📋 응답 타입: ${Array.isArray(leagueData) ? 'Array' : typeof leagueData}`);
+      console.log('🔍 전체 원본 데이터:');
+      console.log(JSON.stringify(leagueData, null, 2));
+
+      // 각 랭크 정보 상세 분석
+      if (leagueData.length > 0) {
+        console.log('\n📈 랭크 엔트리별 상세 분석:');
+        leagueData.forEach((entry, index) => {
+          console.log(`  [${index}] ${entry.queueType}:`);
+          console.log(`      - 티어: ${entry.tier || 'NULL'}`);
+          console.log(`      - 등급: ${entry.rank || 'NULL'}`);
+          console.log(`      - LP: ${entry.leaguePoints || 0}`);
+          console.log(`      - 승패: ${entry.wins || 0}승 ${entry.losses || 0}패`);
+          console.log(`      - 소환사ID: ${entry.summonerId?.substring(0, 10)}...`);
+        });
+      } else {
+        console.log('⚠️ 랭크 데이터가 비어있음 - 완전 언랭크 상태');
+      }
+      console.log('=======================================');
 
       // 솔로랭크와 자유랭크 분리
       soloRank = leagueData.find(entry => entry.queueType === 'RANKED_SOLO_5x5') || null;
@@ -488,7 +506,32 @@ export default async function handler(req, res) {
       dataSource: 'riot_api'
     };
 
-    // 최종 데이터 요약 로그 (API 호출 체인 성공 확인)
+    // 최종 응답 데이터 구조 검증 로그
+    console.log('\n=== 🔍 최종 응답 데이터 구조 검증 ===');
+    console.log(`📤 전송할 데이터 구조:`);
+    console.log(`  - soloRank: ${playerData.soloRank ? 'EXISTS' : 'NULL'}`);
+    console.log(`  - flexRank: ${playerData.flexRank ? 'EXISTS' : 'NULL'}`);
+    console.log(`  - allRanks: Array[${playerData.allRanks.length}]`);
+    console.log(`  - isUnranked: ${playerData.isUnranked}`);
+    console.log(`  - recentStats: ${playerData.recentStats ? 'EXISTS' : 'NULL'}`);
+
+    if (playerData.soloRank) {
+      console.log(`📊 soloRank 상세:`, {
+        queueType: playerData.soloRank.queueType,
+        tier: playerData.soloRank.tier,
+        rank: playerData.soloRank.rank,
+        leaguePoints: playerData.soloRank.leaguePoints
+      });
+    }
+
+    if (playerData.allRanks.length > 0) {
+      console.log(`📊 allRanks 배열 내용:`);
+      playerData.allRanks.forEach((rank, i) => {
+        console.log(`  [${i}]: ${rank.queueType} ${rank.tier} ${rank.rank}`);
+      });
+    }
+
+    // API 호출 체인 성공 확인
     console.log('\n=== 🎉 API 호출 체인 성공! ===');
     console.log(`✅ 1단계: Account API → PUUID 획득`);
     console.log(`✅ 2단계: Summoner API → encryptedSummonerId 획득`);
