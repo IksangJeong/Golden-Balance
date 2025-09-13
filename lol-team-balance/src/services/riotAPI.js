@@ -210,8 +210,8 @@ const validateRiotId = (riotId) => {
     return { valid: false, error: '게임명에 허용되지 않는 문자가 포함되어 있습니다.' };
   }
 
-  if (!/^[a-zA-Z0-9]+$/.test(tagLine)) {
-    return { valid: false, error: '태그는 영문자와 숫자만 사용할 수 있습니다.' };
+  if (!/^[a-zA-Z0-9가-힣]+$/.test(tagLine)) {
+    return { valid: false, error: '태그는 영문자, 숫자, 한글만 사용할 수 있습니다.' };
   }
 
   return { valid: true, gameName, tagLine };

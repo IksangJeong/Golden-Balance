@@ -270,7 +270,7 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
                   className="lol-input"
                   value={apiSearch.summonerName}
                   onChange={(e) => setApiSearch({ ...apiSearch, summonerName: e.target.value })}
-                  placeholder="Riot ID를 입력하세요 (예: Player#KR1)"
+                  placeholder="Riot ID를 입력하세요 (예: Player#KR1, 플레이어#한국)"
                   onKeyPress={(e) => e.key === 'Enter' && handleAPISearch()}
                   style={{ flex: 1 }}
                 />
@@ -355,7 +355,7 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
                 4️⃣ Match API → 최근 20게임 통계 계산
                 <br />
                 <br />
-                📝 <strong>Riot ID 형식:</strong> "게임명#태그" (예: Hide on bush#KR1, Faker#KR1)
+                📝 <strong>Riot ID 형식:</strong> "게임명#태그" (예: Hide on bush#KR1, Faker#한국, 페이커#KR1)
                 <br />
                 🚫 <strong>언랭크 처리:</strong> 배치고사 미완료 시 빈 배열 응답이 정상입니다
               </div>
@@ -405,7 +405,7 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
                     className="lol-input"
                     value={formData.summonerName}
                     onChange={(e) => setFormData({ ...formData, summonerName: e.target.value })}
-                    placeholder="게임명#태그 (예: Player#KR1)"
+                    placeholder="게임명#태그 (예: Player#KR1, 플레이어#한국)"
                   />
                 </div>
               </div>
