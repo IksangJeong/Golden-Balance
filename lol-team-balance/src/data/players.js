@@ -2,99 +2,163 @@
 
 // === 점수 계산 유틸리티 함수 ===
 
-// 티어 점수 계산 (50점 만점)
+// 티어 점수 계산 (60점 만점) - algorithm.md 기준
 export const calculateTierScore = (tier, division = 'I', lp = 0) => {
+  // algorithm.md 1-1 랭크 티어 (60점)
   const tierScores = {
-    IRON: 5,
-    BRONZE: 5,
-    SILVER: 15,
-    GOLD: 25,
-    PLATINUM: 35,
-    EMERALD: 40,
-    DIAMOND: 45,
-    MASTER: 50,
-    GRANDMASTER: 50,
-    CHALLENGER: 50
+    IRON: 10,      // 아이언~브론즈: 10점
+    BRONZE: 10,    // 아이언~브론즈: 10점
+    SILVER: 20,    // 실버: 20점
+    GOLD: 30,      // 골드: 30점
+    PLATINUM: 40,  // 플래티넘: 40점
+    EMERALD: 50,   // 에메랄드: 50점
+    DIAMOND: 60,   // 다이아몬드 이상: 60점
+    MASTER: 60,    // 다이아몬드 이상: 60점
+    GRANDMASTER: 60, // 다이아몬드 이상: 60점
+    CHALLENGER: 60   // 다이아몬드 이상: 60점
   };
 
-  const divisionBonus = {
-    'IV': 0, 'III': 1, 'II': 2, 'I': 3
-  };
+  const baseScore = tierScores[tier] || 10;
 
-  const baseScore = tierScores[tier] || 5;
-  const bonus = tier === 'MASTER' || tier === 'GRANDMASTER' || tier === 'CHALLENGER' ? 0 : (divisionBonus[division] || 0);
-  const lpBonus = Math.min(2, lp / 50); // LP에 따른 소수점 보너스
-
-  return Math.min(50, baseScore + bonus + lpBonus);
+  // 디비전과 LP는 algorithm.md에 명시되지 않았으므로 제거
+  console.log(`[Tier Score] ${tier}: ${baseScore}점`);
+  return baseScore;
 };
 
-// 승률 점수 계산 (15점 만점)
+// 승률 점수 계산 (20점 만점) - algorithm.md 기준
 export const calculateWinRateScore = (winRate) => {
-  if (winRate < 40) return 3;
-  if (winRate < 50) return 7;
-  if (winRate < 60) return 11;
-  return 15;
+  // algorithm.md 1-2 승률 (20점): 최근 랭크 게임 20게임 기준
+  let score;
+  if (winRate < 40) score = 5;        // 40% 미만: 5점
+  else if (winRate < 50) score = 10;  // 40% ~ 50%: 10점
+  else if (winRate < 60) score = 15;  // 50% ~ 60%: 15점
+  else score = 20;                    // 60% 이상: 20점
+
+  console.log(`[Win Rate Score] ${winRate}%: ${score}점`);
+  return score;
 };
 
-// KDA 점수 계산 (15점 만점)
+// KDA 점수 계산 (10점 만점) - algorithm.md 기준
 export const calculateKDAScore = (kda) => {
-  if (kda < 1.5) return 3;
-  if (kda < 2.5) return 7;
-  if (kda < 4.0) return 11;
-  return 15;
+  // algorithm.md 1-3 KDA (10점): 최근 20게임 기준
+  let score;
+  if (kda < 2.5) score = 2;      // KDA 2.5 미만: 2점
+  else if (kda < 4.0) score = 5; // KDA 2.5 ~ 4.0: 5점
+  else score = 10;                // KDA 4.0 이상: 10점
+
+  console.log(`[KDA Score] ${kda}: ${score}점`);
+  return score;
 };
 
-// 분당 CS 점수 계산 (10점 만점)
+// 분당 CS 점수 계산 (10점 만점) - algorithm.md 기준
 export const calculateCSScore = (csPerMin) => {
-  if (csPerMin < 4.0) return 2;
-  if (csPerMin < 6.0) return 5;
-  if (csPerMin < 7.5) return 8;
-  return 10;
+  // algorithm.md 1-4 분당 CS (10점): 최근 20게임 기준
+  let score;
+  if (csPerMin < 5.0) score = 2;      // 5.0 미만: 2점
+  else if (csPerMin < 7.0) score = 5; // 5.0 ~ 7.0: 5점
+  else score = 10;                     // 7.0 이상: 10점
+
+  console.log(`[CS Score] ${csPerMin}/min: ${score}점`);
+  return score;
 };
 
-// 서포터용 시야 점수 계산 (15점 만점)
+// 서포터용 시야 점수 계산 (20점 만점) - algorithm.md 기준
 export const calculateVisionScore = (visionScorePerMin) => {
-  if (visionScorePerMin < 1.0) return 3;
-  if (visionScorePerMin < 1.5) return 7;
-  if (visionScorePerMin < 2.0) return 11;
-  return 15;
+  // algorithm.md 1-3 분당 시야 점수(20점): 최근 20게임 기준 (서포터용)
+  let score;
+  if (visionScorePerMin < 1.5) score = 5;        // 1.5 미만: 5점
+  else if (visionScorePerMin < 2.0) score = 10;  // 1.5 ~ 2.0: 10점
+  else if (visionScorePerMin < 2.5) score = 15;  // 2.0 ~ 2.5: 15점
+  else score = 20;                                // 2.5 이상: 20점
+
+  console.log(`[Vision Score] ${visionScorePerMin}/min: ${score}점`);
+  return score;
 };
 
-// 성장세 점수 계산 (10점 만점)
+// 서포터용 팀 기여도 점수 계산 (10점 만점) - algorithm.md 기준
+export const calculateTeamContributionScore = (teamContribution) => {
+  // algorithm.md 1-4 팀기여도(10점): 평균 CC시간, 치유량, 방어막 등
+  // teamContribution은 백분위로 받음 (0-100)
+  let score;
+  if (teamContribution < 25) score = 2;      // 하위 25%: 2점
+  else if (teamContribution < 75) score = 5; // 25% ~ 75%: 5점
+  else score = 10;                            // 상위 75%: 10점
+
+  console.log(`[Team Contribution] ${teamContribution}%: ${score}점`);
+  return score;
+};
+
+// 성장세 점수 계산 - algorithm.md에는 없지만 보조 지표로 사용
 export const calculateTrendScore = (recentWinRate, overallWinRate) => {
-  const diff = recentWinRate - overallWinRate;
-  if (diff < -10) return 2;
-  if (diff < -5) return 4;
-  if (diff < 5) return 6;
-  if (diff < 10) return 8;
-  return 10;
+  // 이 점수는 algorithm.md에 없으므로 사용하지 않음
+  return 0;
 };
 
-// 종합 실력 점수 계산 (100점 만점)
+// 종합 실력 점수 계산 (100점 만점) - algorithm.md 기준
 export const calculateTotalSkillScore = (player) => {
-  const tierScore = calculateTierScore(player.tier, player.division, player.lp);
-  const winRateScore = calculateWinRateScore(player.winRate);
-  const trendScore = calculateTrendScore(player.recentWinRate || player.winRate, player.winRate);
+  console.log(`\n=== 종합 실력 점수 계산: ${player.name} (${player.mainRole}) ===`);
 
-  let performanceScore = 0;
-  let csScore = 0;
+  // 1-1. 랭크 티어 (60점)
+  const tierScore = calculateTierScore(player.tier, player.division, player.lp);
+
+  // 1-2. 승률 (20점) - 최근 20게임 승률 우선, 없으면 전체 승률 사용
+  const winRate = player.recentWinRate || player.winRate;
+  const winRateScore = calculateWinRateScore(winRate);
+
+  let kdaOrVisionScore = 0;
+  let csOrContributionScore = 0;
 
   if (player.mainRole === 'SUPPORT') {
-    performanceScore = calculateVisionScore(player.visionScorePerMin);
-    csScore = Math.min(10, (player.teamContribution || 50) / 10); // 팀기여도를 10점 만점으로
+    // 서포터의 경우
+    console.log('\n[서포터 점수 계산]');
+    // 1-3. 분당 시야 점수 (20점)
+    kdaOrVisionScore = calculateVisionScore(player.visionScorePerMin || 1.5);
+    // 1-4. 팀기여도 (10점)
+    csOrContributionScore = calculateTeamContributionScore(player.teamContribution || 50);
   } else {
-    performanceScore = calculateKDAScore(player.avgKDA);
-    csScore = calculateCSScore(player.csPerMin);
+    // 다른 포지션의 경우
+    console.log('\n[일반 포지션 점수 계산]');
+    // 1-3. KDA (10점)
+    kdaOrVisionScore = calculateKDAScore(player.avgKDA || 2.0);
+    // 1-4. 분당 CS (10점)
+    csOrContributionScore = calculateCSScore(player.csPerMin || 5.0);
   }
 
-  return Math.round(tierScore + winRateScore + performanceScore + csScore + trendScore);
+  const total = tierScore + winRateScore + kdaOrVisionScore + csOrContributionScore;
+  console.log(`\n[종합 실력 점수] ${total}점/100점`);
+  console.log(`  - 티어: ${tierScore}점/60점`);
+  console.log(`  - 승률: ${winRateScore}점/20점`);
+  console.log(`  - ${player.mainRole === 'SUPPORT' ? '시야' : 'KDA'}: ${kdaOrVisionScore}점/${player.mainRole === 'SUPPORT' ? '20' : '10'}점`);
+  console.log(`  - ${player.mainRole === 'SUPPORT' ? '팀기여도' : 'CS'}: ${csOrContributionScore}점/10점`);
+  console.log('======================================\n');
+
+  return Math.round(total);
 };
 
-// 라인 숙련도 점수 계산 (50점 만점)
+// 라인 숙련도 점수 계산 (50점 만점) - algorithm.md 기준
 export const calculateRoleScore = (player) => {
-  const mainRoleScore = (player.roleProficiency?.[player.mainRole] || 5) * 3; // 30점 만점
-  const subRoleScore = (player.roleProficiency?.[player.subRole] || 3) * 2;   // 20점 만점
-  return Math.min(50, mainRoleScore + subRoleScore);
+  // algorithm.md 2. 라인 숙련도 점수 (총 50점)
+  // 각 라인에 대해 10점 만점으로 평가
+  // 플레이어는 1지망 라인을 선택, 해당 라인의 숙련도 점수가 가장 높아야 함
+
+  console.log(`\n=== 라인 숙련도 점수 계산: ${player.name} ===`);
+  console.log('라인별 숙련도:', player.roleProficiency);
+
+  // 모든 라인의 숙련도 점수 합계 (각 라인 10점 만점)
+  let totalRoleScore = 0;
+  const roles = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
+
+  for (const role of roles) {
+    const proficiency = player.roleProficiency?.[role] || 0;
+    totalRoleScore += proficiency;
+    console.log(`  - ${role}: ${proficiency}점/10점`);
+  }
+
+  // 최대 50점으로 제한
+  const finalScore = Math.min(50, totalRoleScore);
+  console.log(`[라인 숙련도 총점] ${finalScore}점/50점\n`);
+
+  return finalScore;
 };
 
 // === 데이터 구조 ===

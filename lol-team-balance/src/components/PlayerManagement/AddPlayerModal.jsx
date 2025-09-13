@@ -68,13 +68,38 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
       return;
     }
 
+    console.log('\n======================================');
+    console.log('=== Riot API 검색 시작 ===');
+    console.log(`검색 소환사명: ${apiSearch.summonerName}`);
+    console.log('======================================\n');
+
     setApiSearch(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
       const result = await RiotAPI.searchSummoner(apiSearch.summonerName);
 
       if (result.success) {
+        console.log('\n=== API 검색 성공 ===');
+        console.log('원본 데이터:', result.data);
+
         const profile = RiotAPI.convertToPlayerProfile(result.data, apiSearch.summonerName);
+
+        console.log('\n=== 변환된 프로필 ===');
+        console.log(`이름: ${profile.name}`);
+        console.log(`티어: ${profile.tier} ${profile.division} (${profile.lp} LP)`);
+        console.log(`승률: 전체 ${profile.winRate}%, 최근 ${profile.recentWinRate}%`);
+        console.log(`KDA: ${profile.avgKDA}`);
+        console.log(`분당 CS: ${profile.csPerMin}`);
+        console.log(`분당 시야점수: ${profile.visionScorePerMin}`);
+        console.log(`팀 기여도: ${profile.teamContribution}%`);
+        console.log(`메인 포지션: ${profile.mainRole}`);
+        console.log(`서브 포지션: ${profile.subRole || '없음'}`);
+        console.log(`포지션 숙련도:`, profile.roleProficiency);
+        console.log('\n=== 점수 계산 결과 ===');
+        console.log(`종합 실력 점수: ${profile.totalSkillScore}/100`);
+        console.log(`라인 숙련도 점수: ${profile.roleScore}/50`);
+        console.log(`총점: ${profile.overallScore}/150`);
+        console.log('======================================\n');
 
         // 폼 데이터에 API 결과 적용
         setFormData({
@@ -105,6 +130,10 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
         // 자동으로 수동 편집 탭으로 이동
         setActiveTab('manual');
       } else {
+        console.error('\n=== API 검색 실패 ===');
+        console.error('오류:', result.error);
+        console.error('======================================\n');
+
         setApiSearch(prev => ({
           ...prev,
           isLoading: false,
@@ -112,6 +141,10 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
         }));
       }
     } catch (error) {
+      console.error('\n=== API 검색 예외 발생 ===');
+      console.error('예외:', error);
+      console.error('======================================\n');
+
       setApiSearch(prev => ({
         ...prev,
         isLoading: false,
@@ -129,6 +162,15 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
 
     // createPlayerProfile을 사용하여 완전한 프로필 생성
     const profile = createPlayerProfile(formData);
+
+    console.log('\n=== 플레이어 추가 완료 ===');
+    console.log(`플레이어: ${profile.name}`);
+    console.log(`티어: ${profile.tier} ${profile.division}`);
+    console.log(`종합 실력 점수: ${profile.totalSkillScore}/100`);
+    console.log(`라인 숙련도 점수: ${profile.roleScore}/50`);
+    console.log(`총점: ${profile.overallScore}/150`);
+    console.log('======================================\n');
+
     onAdd(profile);
     onClose();
   };

@@ -91,14 +91,27 @@ export default async function handler(req, res) {
 
     if (leagueResponse.ok) {
       leagueData = await leagueResponse.json();
-      console.log('League API 응답:', leagueData); // 디버깅용
+      console.log('\n=== League API 응답 ===');
+      console.log('전체 데이터:', JSON.stringify(leagueData, null, 2));
 
       // 솔로랭크와 자유랭크 분리
       soloRank = leagueData.find(entry => entry.queueType === 'RANKED_SOLO_5x5') || null;
       flexRank = leagueData.find(entry => entry.queueType === 'RANKED_FLEX_SR') || null;
 
-      console.log('솔로랭크:', soloRank); // 디버깅용
-      console.log('자유랭크:', flexRank); // 디버깅용
+      if (soloRank) {
+        console.log('\n=== 솔로랭크 정보 ===');
+        console.log(`티어: ${soloRank.tier} ${soloRank.rank}`);
+        console.log(`LP: ${soloRank.leaguePoints}`);
+        console.log(`승/패: ${soloRank.wins}승 ${soloRank.losses}패`);
+        console.log(`승률: ${Math.round((soloRank.wins / (soloRank.wins + soloRank.losses)) * 100)}%`);
+      }
+
+      if (flexRank) {
+        console.log('\n=== 자유랭크 정보 ===');
+        console.log(`티어: ${flexRank.tier} ${flexRank.rank}`);
+        console.log(`LP: ${flexRank.leaguePoints}`);
+        console.log(`승/패: ${flexRank.wins}승 ${flexRank.losses}패`);
+      }
     } else {
       console.warn('League API 호출 실패:', leagueResponse.status, await leagueResponse.text());
     }
@@ -119,10 +132,11 @@ export default async function handler(req, res) {
       if (matchListResponse.ok) {
         const matchIds = await matchListResponse.json();
 
-        // 최근 15경기 정보 가져오기 (정확한 포지션 분석을 위해)
-        const recentMatches = matchIds.slice(0, Math.min(15, matchIds.length));
+        // 최근 20경기 정보 가져오기 (algorithm.md에서 요구하는 20게임)
+        const recentMatches = matchIds.slice(0, Math.min(20, matchIds.length));
         const matchDetails = [];
-        console.log(`분석할 매치 수: ${recentMatches.length}`); // 디버깅용
+        console.log(`\n=== 매치 히스토리 분석 ===`);
+        console.log(`분석할 매치 수: ${recentMatches.length}/20`);
 
         for (const matchId of recentMatches) {
           try {
@@ -148,6 +162,27 @@ export default async function handler(req, res) {
                 if (!position || position === 'UTILITY') {
                   position = 'SUPPORT';
                 }
+                // BOTTOM 포지션 세분화
+                if (position === 'BOTTOM') {
+                  // 서포터 아이템이나 낮은 CS로 판단
+                  const csPerMin = (playerData.totalMinionsKilled + playerData.neutralMinionsKilled) / (matchData.info.gameDuration / 60);
+                  if (csPerMin < 3) {
+                    position = 'SUPPORT';
+                  } else {
+                    position = 'ADC';
+                  }
+                }
+
+                // 서포터 전용 통계 추가
+                const gameDurationMinutes = matchData.info.gameDuration / 60;
+                const visionScorePerMin = playerData.visionScore / gameDurationMinutes;
+                const totalCS = playerData.totalMinionsKilled + (playerData.neutralMinionsKilled || 0);
+                const csPerMin = totalCS / gameDurationMinutes;
+
+                // CC 시간, 힐/실드량 계산 (서포터용)
+                const ccTime = playerData.totalTimeCCDealt || 0;
+                const healingDone = playerData.totalHealsOnTeammates || 0;
+                const shieldingDone = playerData.totalDamageShieldedOnTeammates || 0;
 
                 matchDetails.push({
                   matchId: matchId,
@@ -163,13 +198,22 @@ export default async function handler(req, res) {
                   totalMinionsKilled: playerData.totalMinionsKilled,
                   neutralMinionsKilled: playerData.neutralMinionsKilled || 0,
                   visionScore: playerData.visionScore,
+                  visionScorePerMin: visionScorePerMin,
+                  csPerMin: csPerMin,
                   totalDamageDealtToChampions: playerData.totalDamageDealtToChampions,
                   goldEarned: playerData.goldEarned,
                   // 포지션 정보 개선
                   teamPosition: position,
                   individualPosition: playerData.individualPosition || '',
                   role: playerData.role || '',
-                  lane: playerData.lane || ''
+                  lane: playerData.lane || '',
+                  // 서포터 전용 통계
+                  totalTimeCCDealt: ccTime,
+                  totalHealsOnTeammates: healingDone,
+                  totalDamageShieldedOnTeammates: shieldingDone,
+                  // 추가 통계
+                  kda: playerData.deaths === 0 ? 99 : (playerData.kills + playerData.assists) / playerData.deaths,
+                  killParticipation: playerData.challenges?.killParticipation || 0
                 });
               }
             }
@@ -211,6 +255,12 @@ export default async function handler(req, res) {
       const totalGameMinutes = totalGameTime / 60;
       const avgGameMinutes = totalGameMinutes / matchHistory.length;
 
+      // 서포터 전용 통계 계산
+      const totalCCTime = matchHistory.reduce((sum, match) => sum + (match.totalTimeCCDealt || 0), 0);
+      const totalHealing = matchHistory.reduce((sum, match) => sum + (match.totalHealsOnTeammates || 0), 0);
+      const totalShielding = matchHistory.reduce((sum, match) => sum + (match.totalDamageShieldedOnTeammates || 0), 0);
+      const avgKillParticipation = matchHistory.reduce((sum, match) => sum + (match.killParticipation || 0), 0) / matchHistory.length;
+
       recentStats = {
         gamesPlayed: matchHistory.length,
         wins: wins,
@@ -229,10 +279,48 @@ export default async function handler(req, res) {
         avgDamage: Math.round(totalDamage / matchHistory.length),
         avgGold: Math.round(totalGold / matchHistory.length),
         avgGameTime: Math.round(avgGameMinutes),
-        positions: positionCounts
+        positions: positionCounts,
+        // 서포터 전용 통계
+        avgCCTime: Number((totalCCTime / matchHistory.length).toFixed(1)),
+        avgHealing: Math.round(totalHealing / matchHistory.length),
+        avgShielding: Math.round(totalShielding / matchHistory.length),
+        avgKillParticipation: Number((avgKillParticipation * 100).toFixed(1))
       };
 
-      console.log('계산된 통계:', recentStats); // 디버깅용
+      console.log('\n=== 계산된 통계 (최근 20게임) ===');
+      console.log(`게임 수: ${recentStats.gamesPlayed}`);
+      console.log(`승률: ${recentStats.winRate}% (${recentStats.wins}승 ${recentStats.gamesPlayed - recentStats.wins}패)`);
+      console.log(`KDA: ${recentStats.avgKDA} (${recentStats.avgKills}/${recentStats.avgDeaths}/${recentStats.avgAssists})`);
+      console.log(`분당 CS: ${recentStats.avgCSPerMin}`);
+      console.log(`분당 시야점수: ${recentStats.avgVisionScorePerMin}`);
+      console.log('포지션 통계:', recentStats.positions);
+      console.log('킬 관여율:', recentStats.avgKillParticipation + '%');
+    }
+
+    // 4단계: 챔피언 마스터리 데이터 조회 (포지션 숙련도 판단용)
+    let championMastery = null;
+    try {
+      const masteryUrl = `https://kr.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${accountData.puuid}`;
+      const masteryResponse = await fetch(masteryUrl, {
+        headers: {
+          'X-Riot-Token': riotApiKey,
+          'User-Agent': 'LOL-Team-Balance/1.0.0'
+        }
+      });
+
+      if (masteryResponse.ok) {
+        championMastery = await masteryResponse.json();
+        console.log(`\n=== 챔피언 마스터리 데이터 ===`);
+        console.log(`총 챔피언 수: ${championMastery.length}`);
+        if (championMastery.length > 0) {
+          console.log('상위 5개 챔피언:');
+          championMastery.slice(0, 5).forEach((champ, idx) => {
+            console.log(`  ${idx + 1}. 챔피언ID: ${champ.championId}, 레벨: ${champ.championLevel}, 포인트: ${champ.championPoints}`);
+          });
+        }
+      }
+    } catch (masteryError) {
+      console.warn('챔피언 마스터리 조회 실패:', masteryError);
     }
 
     // 통합 응답 데이터
@@ -262,10 +350,23 @@ export default async function handler(req, res) {
       // 매치 히스토리
       matchHistory: matchHistory,
 
+      // 챔피언 마스터리
+      championMastery: championMastery,
+
       // 메타데이터
       lastUpdated: new Date().toISOString(),
       dataSource: 'riot_api'
     };
+
+    // 최종 데이터 요약 로그
+    console.log('\n=== 최종 데이터 요약 ===');
+    console.log(`플레이어: ${playerData.riotId}`);
+    console.log(`솔로랭크: ${playerData.soloRank ? `${playerData.soloRank.tier} ${playerData.soloRank.rank}` : '언랭크'}`);
+    console.log(`최근 20게임 승률: ${playerData.recentStats?.winRate || 0}%`);
+    console.log(`평균 KDA: ${playerData.recentStats?.avgKDA || 0}`);
+    console.log(`주 포지션: ${Object.keys(playerData.recentStats?.positions || {}).sort((a, b) =>
+      (playerData.recentStats.positions[b] || 0) - (playerData.recentStats.positions[a] || 0))[0] || '알 수 없음'}`);
+    console.log('========================\n');
 
     // 성공 응답
     return res.status(200).json({

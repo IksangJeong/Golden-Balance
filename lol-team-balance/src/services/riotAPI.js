@@ -284,11 +284,28 @@ export const RiotAPI = {
             avgVisionScore: playerData.data.recentStats.avgVisionScorePerMin || playerData.data.recentStats.avgVisionScore,
             avgDamage: playerData.data.recentStats.avgDamage,
             avgGold: playerData.data.recentStats.avgGold,
-            winRate: playerData.data.recentStats.winRate
+            winRate: playerData.data.recentStats.winRate,
+            // 서포터 전용 통계 추가
+            avgCCTime: playerData.data.recentStats.avgCCTime,
+            avgHealing: playerData.data.recentStats.avgHealing,
+            avgShielding: playerData.data.recentStats.avgShielding,
+            avgKillParticipation: playerData.data.recentStats.avgKillParticipation
           } : null,
           // 포지션 정보
-          positions: playerData.data.recentStats?.positions || {}
+          positions: playerData.data.recentStats?.positions || {},
+          // 챔피언 마스터리 정보
+          championMastery: playerData.data.championMastery || null
         };
+
+        // 디버그 로그
+        console.log('\n=== Riot API 데이터 수신 완료 ===');
+        console.log(`플레이어: ${data.riotId}`);
+        console.log(`티어: ${data.soloRank?.tier || 'UNRANKED'} ${data.soloRank?.rank || ''}`);
+        console.log(`최근 승률: ${data.recentMatches?.winRate || 0}%`);
+        console.log(`KDA: ${data.recentMatches?.avgKDA || 0}`);
+        console.log(`분당 CS: ${data.recentMatches?.avgCS || 0}`);
+        console.log(`분당 시야점수: ${data.recentMatches?.avgVisionScore || 0}`);
+        console.log('포지션 통계:', data.positions);
       }
 
       // 캐시에 저장
@@ -313,6 +330,14 @@ export const RiotAPI = {
   convertToPlayerProfile(apiData, playerName) {
     const data = apiData;
 
+    console.log('\n=== 프로필 변환 시작 ===');
+    console.log('원본 데이터:', {
+      tier: data.soloRank?.tier,
+      rank: data.soloRank?.rank,
+      recentStats: data.recentStats,
+      positions: data.positions
+    });
+
     // 랭크 정보 추출 (솔로 랭크 우선)
     const soloRank = data.soloRank || data.rankedInfo?.find(rank => rank.queueType === 'RANKED_SOLO_5x5') || data.rankedInfo?.[0];
     const tier = soloRank?.tier || data.tier || 'UNRANKED';
@@ -321,58 +346,106 @@ export const RiotAPI = {
     const wins = soloRank?.wins || data.wins || 0;
     const losses = soloRank?.losses || data.losses || 0;
 
-    // 승률 계산
+    // 승률 계산 - 최근 20게임 승률 우선 (algorithm.md 기준)
     const totalGames = wins + losses;
-    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 50;
-    const recentWinRate = data.recentMatches ? Math.round((data.recentMatches.wins / data.recentMatches.total) * 100) : winRate;
+    const overallWinRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 50;
+    // 최근 20게임 승률을 메인으로 사용
+    const recentWinRate = data.recentMatches?.winRate || overallWinRate;
 
-    // 주/부 포지션 결정
+    // 주/부 포지션 결정 (개선된 로직)
     const positionEntries = Object.entries(data.positions || {});
     positionEntries.sort(([,a], [,b]) => b - a);
     const mainRole = positionEntries[0]?.[0] || 'MID';
     const subRole = positionEntries[1]?.[0] || null;
 
-    // 포지션별 숙련도 계산 (플레이 빈도 기반으로 추정)
+    console.log('\n포지션 분석:');
+    console.log('포지션 통계:', data.positions);
+    console.log(`주 포지션: ${mainRole}`);
+    console.log(`부 포지션: ${subRole || '없음'}`);
+
+    // 포지션별 숙련도 계산 (개선된 로직 - algorithm.md 기준)
     const roleProficiency = {
-      TOP: 3,
-      JUNGLE: 3,
-      MID: 3,
-      ADC: 3,
-      SUPPORT: 3
+      TOP: 0,
+      JUNGLE: 0,
+      MID: 0,
+      ADC: 0,
+      SUPPORT: 0
     };
 
-    // 주 포지션과 부 포지션에 높은 점수 부여
-    if (mainRole) {
-      roleProficiency[mainRole] = Math.min(10, 7 + Math.floor((data.positions[mainRole] || 50) / 15));
+    // 각 포지션에 대한 숙련도 계산 (0-10점)
+    const totalPositionGames = Object.values(data.positions || {}).reduce((sum, count) => sum + count, 0);
+
+    for (const [position, gameCount] of Object.entries(data.positions || {})) {
+      if (position in roleProficiency) {
+        // 게임 수 비율에 따른 숙련도 계산
+        const gameRatio = totalPositionGames > 0 ? gameCount / totalPositionGames : 0;
+
+        if (position === mainRole) {
+          // 주 포지션은 최소 7점에서 시작
+          roleProficiency[position] = Math.min(10, Math.max(7, Math.round(7 + gameRatio * 3)));
+        } else if (position === subRole) {
+          // 부 포지션은 최소 5점에서 시작
+          roleProficiency[position] = Math.min(8, Math.max(5, Math.round(5 + gameRatio * 3)));
+        } else if (gameCount > 0) {
+          // 간혹 플레이한 포지션
+          roleProficiency[position] = Math.min(5, Math.max(1, Math.round(gameRatio * 10)));
+        } else {
+          // 플레이 경험 없음
+          roleProficiency[position] = 0;
+        }
+      }
     }
-    if (subRole) {
-      roleProficiency[subRole] = Math.min(8, 5 + Math.floor((data.positions[subRole] || 30) / 20));
-    }
+
+    console.log('\n계산된 포지션 숙련도:');
+    console.log(roleProficiency);
 
     // 통계 데이터 추출 (개선된 로직)
     const avgKDA = data.recentMatches?.avgKDA || 2.0;
     const csPerMin = data.recentMatches?.avgCS || 5.5;
     const visionScorePerMin = data.recentMatches?.avgVisionScore || 1.2;
 
-    // 추가 통계 데이터
-    const avgKills = data.recentMatches?.avgKills || 5.0;
-    const avgDeaths = data.recentMatches?.avgDeaths || 4.0;
-    const avgAssists = data.recentMatches?.avgAssists || 8.0;
+    // 추가 통계 데이터 - 현재는 사용하지 않지만 향후 확장을 위해 보관
+    // const avgKills = data.recentMatches?.avgKills || 5.0;
+    // const avgDeaths = data.recentMatches?.avgDeaths || 4.0;
+    // const avgAssists = data.recentMatches?.avgAssists || 8.0;
 
-    // 서포터인 경우 팀 기여도 계산
-    const teamContribution = mainRole === 'SUPPORT'
-      ? Math.min(90, Math.max(20, 40 + (visionScorePerMin - 1.2) * 30))
-      : Math.min(90, Math.max(20, 30 + (avgKDA - 2.0) * 15));
+    // 서포터인 경우 팀 기여도 계산 (개선된 로직)
+    let teamContribution = 50; // 기본값 50% (평균)
 
-    return createPlayerProfile({
+    if (mainRole === 'SUPPORT') {
+      // 서포터의 경우 킬 관여율, CC시간, 힐/실드량 기반
+      const killParticipation = data.recentMatches?.avgKillParticipation || 50;
+      const ccContribution = data.recentMatches?.avgCCTime ? Math.min(30, (data.recentMatches.avgCCTime / 20) * 30) : 10;
+      const healShieldContribution = data.recentMatches ?
+        Math.min(20, ((data.recentMatches.avgHealing + data.recentMatches.avgShielding) / 10000) * 20) : 10;
+
+      // 팀 기여도 백분위 계산 (0-100)
+      teamContribution = Math.min(100, Math.max(0,
+        (killParticipation * 0.5) + ccContribution + healShieldContribution
+      ));
+
+      console.log('\n서포터 팀 기여도 계산:');
+      console.log(`킬 관여율: ${killParticipation}%`);
+      console.log(`CC 기여도: ${ccContribution.toFixed(1)}`);
+      console.log(`힐/실드 기여도: ${healShieldContribution.toFixed(1)}`);
+      console.log(`총 팀 기여도: ${teamContribution.toFixed(1)}%`);
+    } else {
+      // 다른 포지션의 경우 KDA와 킬 관여율 기반
+      const killParticipation = data.recentMatches?.avgKillParticipation || 50;
+      teamContribution = Math.min(100, Math.max(0,
+        (killParticipation * 0.7) + (avgKDA * 5)
+      ));
+    }
+
+    const profile = createPlayerProfile({
       name: playerName,
       summonerName: data.riotId || data.gameName || data.name || playerName,
       puuid: data.puuid,
       tier: tier,
       division: division,
       lp: lp,
-      winRate: winRate,
-      recentWinRate: recentWinRate,
+      winRate: overallWinRate,      // 전체 승률
+      recentWinRate: recentWinRate, // 최근 20게임 승률 (algorithm.md 기준)
       avgKDA: avgKDA,
       csPerMin: csPerMin,
       visionScorePerMin: visionScorePerMin,
@@ -383,6 +456,15 @@ export const RiotAPI = {
       lastUpdated: new Date().toISOString().split('T')[0],
       isFromAPI: true
     });
+
+    // 최종 점수 계산 로그
+    console.log('\n=== 최종 점수 계산 결과 ===');
+    console.log(`종합 실력 점수: ${profile.totalSkillScore}점/100점`);
+    console.log(`라인 숙련도 점수: ${profile.roleScore}점/50점`);
+    console.log(`총점: ${profile.overallScore}점/150점`);
+    console.log('========================\n');
+
+    return profile;
   },
 
   /**
