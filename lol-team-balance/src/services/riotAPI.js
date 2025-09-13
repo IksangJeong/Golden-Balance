@@ -338,13 +338,25 @@ export const RiotAPI = {
       positions: data.positions
     });
 
-    // 랭크 정보 추출 (솔로 랭크 우선)
+    // 랭크 정보 추출 (솔로 랭크 우선) - 디버그 로깅 추가
     const soloRank = data.soloRank || data.rankedInfo?.find(rank => rank.queueType === 'RANKED_SOLO_5x5') || data.rankedInfo?.[0];
+    console.log('\n=== 티어 정보 추출 디버그 ===');
+    console.log('soloRank 전체:', soloRank);
+    console.log('data.soloRank:', data.soloRank);
+    console.log('rankedInfo:', data.rankedInfo);
+
     const tier = soloRank?.tier || data.tier || 'UNRANKED';
     const division = soloRank?.rank || data.rank || 'I';
     const lp = soloRank?.leaguePoints || data.leaguePoints || 0;
     const wins = soloRank?.wins || data.wins || 0;
     const losses = soloRank?.losses || data.losses || 0;
+
+    console.log('추출된 티어 정보:');
+    console.log(`  tier: ${tier}`);
+    console.log(`  division: ${division}`);
+    console.log(`  lp: ${lp}`);
+    console.log(`  wins: ${wins}, losses: ${losses}`);
+    console.log('=====================================');
 
     // 승률 계산 - 최근 20게임 승률 우선 (algorithm.md 기준)
     const totalGames = wins + losses;

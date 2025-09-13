@@ -92,6 +92,7 @@ export default async function handler(req, res) {
     if (leagueResponse.ok) {
       leagueData = await leagueResponse.json();
       console.log('\n=== League API 응답 ===');
+      console.log('랭크 데이터 개수:', leagueData.length);
       console.log('전체 데이터:', JSON.stringify(leagueData, null, 2));
 
       // 솔로랭크와 자유랭크 분리
@@ -104,6 +105,9 @@ export default async function handler(req, res) {
         console.log(`LP: ${soloRank.leaguePoints}`);
         console.log(`승/패: ${soloRank.wins}승 ${soloRank.losses}패`);
         console.log(`승률: ${Math.round((soloRank.wins / (soloRank.wins + soloRank.losses)) * 100)}%`);
+      } else {
+        console.log('\n=== 솔로랭크 정보 ===');
+        console.log('솔로랭크 데이터를 찾을 수 없음. 언랭크 상태일 가능성 높음.');
       }
 
       if (flexRank) {
@@ -155,15 +159,29 @@ export default async function handler(req, res) {
               );
 
               if (playerData && matchData.info.gameDuration >= 900) { // 15분 이상 게임만
-                // 포지션 결정 로직 개선
+                // 포지션 결정 로직 개선 - Riot API 포지션 매핑
                 let position = playerData.teamPosition || playerData.individualPosition || '';
 
-                // 빈 포지션이나 UTILITY인 경우 서포터로 처리
-                if (!position || position === 'UTILITY') {
-                  position = 'SUPPORT';
+                // Riot API 포지션 값을 내부 값으로 매핑
+                const positionMapping = {
+                  'TOP': 'TOP',
+                  'JUNGLE': 'JUNGLE',
+                  'MIDDLE': 'MID',  // Riot API에서는 MIDDLE로 전달
+                  'MID': 'MID',     // 호환성을 위해 유지
+                  'BOTTOM': 'TEMP_BOTTOM', // 임시 값 - 아래에서 ADC/SUPPORT 구분
+                  'UTILITY': 'SUPPORT',
+                  'SUPPORT': 'SUPPORT'
+                };
+
+                position = positionMapping[position] || position;
+
+                // 빈 포지션 처리
+                if (!position) {
+                  position = 'SUPPORT'; // 기본값
                 }
-                // BOTTOM 포지션 세분화
-                if (position === 'BOTTOM') {
+
+                // BOTTOM 포지션 세분화 (ADC vs SUPPORT)
+                if (position === 'TEMP_BOTTOM') {
                   // 서포터 아이템이나 낮은 CS로 판단
                   const csPerMin = (playerData.totalMinionsKilled + playerData.neutralMinionsKilled) / (matchData.info.gameDuration / 60);
                   if (csPerMin < 3) {
@@ -173,11 +191,15 @@ export default async function handler(req, res) {
                   }
                 }
 
-                // 서포터 전용 통계 추가
+                console.log(`게임 ${matchId}: 원본 포지션=${playerData.teamPosition || playerData.individualPosition}, 최종 포지션=${position}`);
+
+                // 게임별 분당 통계 계산 (각 게임별로 개별 계산)
                 const gameDurationMinutes = matchData.info.gameDuration / 60;
                 const visionScorePerMin = playerData.visionScore / gameDurationMinutes;
                 const totalCS = playerData.totalMinionsKilled + (playerData.neutralMinionsKilled || 0);
                 const csPerMin = totalCS / gameDurationMinutes;
+
+                console.log(`게임 ${matchId}: ${totalCS}CS, ${gameDurationMinutes.toFixed(1)}분, 분당CS: ${csPerMin.toFixed(1)}`);
 
                 // CC 시간, 힐/실드량 계산 (서포터용)
                 const ccTime = playerData.totalTimeCCDealt || 0;
@@ -246,14 +268,26 @@ export default async function handler(req, res) {
       const positionCounts = {};
       matchHistory.forEach(match => {
         const position = match.teamPosition;
-        if (position && position !== 'UNKNOWN') {
+        if (position && position !== 'UNKNOWN' && position !== 'TEMP_BOTTOM') {
           positionCounts[position] = (positionCounts[position] || 0) + 1;
         }
       });
 
-      // 분당 통계 계산
+      console.log('\n포지션 통계 상세:');
+      console.log('전체 매치 포지션:', matchHistory.map(m => m.teamPosition));
+      console.log('집계된 포지션 통계:', positionCounts);
+
+      // 분당 통계 계산 - 각 게임별 분당 값을 평균내는 방식으로 수정
       const totalGameMinutes = totalGameTime / 60;
       const avgGameMinutes = totalGameMinutes / matchHistory.length;
+
+      // 각 게임별 분당 CS를 계산한 후 평균
+      const individualCSPerMin = matchHistory.map(match => match.csPerMin);
+      const avgCSPerMin = individualCSPerMin.reduce((sum, cs) => sum + cs, 0) / matchHistory.length;
+
+      // 각 게임별 분당 시야점수를 계산한 후 평균
+      const individualVisionPerMin = matchHistory.map(match => match.visionScorePerMin);
+      const avgVisionScorePerMin = individualVisionPerMin.reduce((sum, vision) => sum + vision, 0) / matchHistory.length;
 
       // 서포터 전용 통계 계산
       const totalCCTime = matchHistory.reduce((sum, match) => sum + (match.totalTimeCCDealt || 0), 0);
@@ -265,17 +299,17 @@ export default async function handler(req, res) {
         gamesPlayed: matchHistory.length,
         wins: wins,
         winRate: Math.round((wins / matchHistory.length) * 100),
-        // KDA 계산 개선
-        avgKDA: totalDeaths > 0 ? Number(((totalKills + totalAssists) / totalDeaths).toFixed(2)) : 99.0,
+        // KDA 계산 개선 - 소수점 첫째자리까지
+        avgKDA: totalDeaths > 0 ? Number(((totalKills + totalAssists) / totalDeaths).toFixed(1)) : 99.0,
         avgKills: Number((totalKills / matchHistory.length).toFixed(1)),
         avgDeaths: Number((totalDeaths / matchHistory.length).toFixed(1)),
         avgAssists: Number((totalAssists / matchHistory.length).toFixed(1)),
-        // 분당 CS 계산
+        // 분당 CS 계산 - 각 게임별 분당 CS의 평균
         avgCS: Number((totalCS / matchHistory.length).toFixed(1)),
-        avgCSPerMin: Number(((totalCS + totalJungleCS) / totalGameMinutes).toFixed(1)),
-        // 분당 비전 스코어
+        avgCSPerMin: Number(avgCSPerMin.toFixed(1)),
+        // 분당 비전 스코어 - 각 게임별 분당 시야점수의 평균
         avgVisionScore: Number((totalVision / matchHistory.length).toFixed(1)),
-        avgVisionScorePerMin: Number((totalVision / totalGameMinutes).toFixed(2)),
+        avgVisionScorePerMin: Number(avgVisionScorePerMin.toFixed(1)),
         avgDamage: Math.round(totalDamage / matchHistory.length),
         avgGold: Math.round(totalGold / matchHistory.length),
         avgGameTime: Math.round(avgGameMinutes),
@@ -291,7 +325,7 @@ export default async function handler(req, res) {
       console.log(`게임 수: ${recentStats.gamesPlayed}`);
       console.log(`승률: ${recentStats.winRate}% (${recentStats.wins}승 ${recentStats.gamesPlayed - recentStats.wins}패)`);
       console.log(`KDA: ${recentStats.avgKDA} (${recentStats.avgKills}/${recentStats.avgDeaths}/${recentStats.avgAssists})`);
-      console.log(`분당 CS: ${recentStats.avgCSPerMin}`);
+      console.log(`분당 CS: ${recentStats.avgCSPerMin} (각 게임별 분당CS의 평균)`);
       console.log(`분당 시야점수: ${recentStats.avgVisionScorePerMin}`);
       console.log('포지션 통계:', recentStats.positions);
       console.log('킬 관여율:', recentStats.avgKillParticipation + '%');
@@ -361,11 +395,14 @@ export default async function handler(req, res) {
     // 최종 데이터 요약 로그
     console.log('\n=== 최종 데이터 요약 ===');
     console.log(`플레이어: ${playerData.riotId}`);
-    console.log(`솔로랭크: ${playerData.soloRank ? `${playerData.soloRank.tier} ${playerData.soloRank.rank}` : '언랭크'}`);
+    console.log(`솔로랭크: ${playerData.soloRank ? `${playerData.soloRank.tier} ${playerData.soloRank.rank} (${playerData.soloRank.leaguePoints} LP)` : '언랭크'}`);
     console.log(`최근 20게임 승률: ${playerData.recentStats?.winRate || 0}%`);
     console.log(`평균 KDA: ${playerData.recentStats?.avgKDA || 0}`);
-    console.log(`주 포지션: ${Object.keys(playerData.recentStats?.positions || {}).sort((a, b) =>
-      (playerData.recentStats.positions[b] || 0) - (playerData.recentStats.positions[a] || 0))[0] || '알 수 없음'}`);
+    console.log(`분당 CS: ${playerData.recentStats?.avgCSPerMin || 0}`);
+    const mainPosition = Object.keys(playerData.recentStats?.positions || {}).sort((a, b) =>
+      (playerData.recentStats.positions[b] || 0) - (playerData.recentStats.positions[a] || 0))[0] || '알 수 없음';
+    console.log(`주 포지션: ${mainPosition}`);
+    console.log(`포지션 상세:`, playerData.recentStats?.positions);
     console.log('========================\n');
 
     // 성공 응답

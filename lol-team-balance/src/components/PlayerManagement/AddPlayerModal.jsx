@@ -88,9 +88,9 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
         console.log(`이름: ${profile.name}`);
         console.log(`티어: ${profile.tier} ${profile.division} (${profile.lp} LP)`);
         console.log(`승률: 전체 ${profile.winRate}%, 최근 ${profile.recentWinRate}%`);
-        console.log(`KDA: ${profile.avgKDA}`);
-        console.log(`분당 CS: ${profile.csPerMin}`);
-        console.log(`분당 시야점수: ${profile.visionScorePerMin}`);
+        console.log(`KDA: ${profile.avgKDA.toFixed(1)}`);
+        console.log(`분당 CS: ${profile.csPerMin.toFixed(1)}`);
+        console.log(`분당 시야점수: ${profile.visionScorePerMin.toFixed(1)}`);
         console.log(`팀 기여도: ${profile.teamContribution}%`);
         console.log(`메인 포지션: ${profile.mainRole}`);
         console.log(`서브 포지션: ${profile.subRole || '없음'}`);
@@ -101,7 +101,7 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
         console.log(`총점: ${profile.overallScore}/150`);
         console.log('======================================\n');
 
-        // 폼 데이터에 API 결과 적용
+        // 폼 데이터에 API 결과 적용 (소수점 첫째자리까지 표시)
         setFormData({
           ...formData,
           name: profile.name,
@@ -109,12 +109,12 @@ const AddPlayerModal = ({ onClose, onAdd }) => {
           tier: profile.tier,
           division: profile.division,
           lp: profile.lp,
-          winRate: profile.winRate,
-          recentWinRate: profile.recentWinRate,
-          avgKDA: profile.avgKDA,
-          csPerMin: profile.csPerMin,
-          visionScorePerMin: profile.visionScorePerMin,
-          teamContribution: profile.teamContribution,
+          winRate: Math.round(profile.winRate),
+          recentWinRate: Math.round(profile.recentWinRate),
+          avgKDA: parseFloat(profile.avgKDA.toFixed(1)),
+          csPerMin: parseFloat(profile.csPerMin.toFixed(1)),
+          visionScorePerMin: parseFloat(profile.visionScorePerMin.toFixed(1)),
+          teamContribution: Math.round(profile.teamContribution),
           mainRole: profile.mainRole,
           subRole: profile.subRole,
           roleProficiency: profile.roleProficiency
