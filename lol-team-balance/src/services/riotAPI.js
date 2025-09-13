@@ -201,8 +201,9 @@ const validateRiotId = (riotId) => {
     return { valid: false, error: '게임명은 3-16자 사이여야 합니다.' };
   }
 
-  if (tagLine.length < 3 || tagLine.length > 5) {
-    return { valid: false, error: '태그는 3-5자 사이여야 합니다.' };
+  // 태그라인 길이 검사 (한글 고려)
+  if (tagLine.length < 1 || tagLine.length > 5) {
+    return { valid: false, error: '태그는 1-5자 사이여야 합니다.' };
   }
 
   // 특수문자 검사 (기본적인 검사만)
