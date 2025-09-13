@@ -331,26 +331,44 @@ export const RiotAPI = {
     const data = apiData;
 
     console.log('\n=== 프로필 변환 시작 ===');
-    console.log('원본 데이터:', {
-      tier: data.soloRank?.tier,
-      rank: data.soloRank?.rank,
-      recentStats: data.recentStats,
-      positions: data.positions
-    });
+    console.log('🔍 원본 API 데이터 구조 검사:');
+    console.log('  - soloRank:', data.soloRank ? 'EXISTS' : 'NULL');
+    console.log('  - flexRank:', data.flexRank ? 'EXISTS' : 'NULL');
+    console.log('  - allRanks:', data.allRanks ? `ARRAY[${data.allRanks.length}]` : 'NULL');
+    console.log('  - isUnranked:', data.isUnranked ? 'TRUE' : 'FALSE');
+    console.log('  - recentStats:', data.recentStats ? 'EXISTS' : 'NULL');
+
+    if (data.soloRank) {
+      console.log('✅ 솔로랭크 데이터:', {
+        tier: data.soloRank.tier,
+        rank: data.soloRank.rank,
+        lp: data.soloRank.leaguePoints,
+        wins: data.soloRank.wins,
+        losses: data.soloRank.losses
+      });
+    }
+
+    if (data.allRanks && data.allRanks.length > 0) {
+      console.log('📊 전체 랭크 데이터:', data.allRanks.map(rank => ({
+        queueType: rank.queueType,
+        tier: rank.tier,
+        rank: rank.rank
+      })));
+    }
 
     // 랭크 정보 추출 (솔로 랭크 우선, 자유랭크 fallback) - 강화된 로직
     console.log('\n=== 티어 정보 추출 프로세스 ===');
 
-    // 1단계: 솔로랭크 확인
-    const soloRank = data.soloRank || data.rankedInfo?.find(rank => rank.queueType === 'RANKED_SOLO_5x5');
+    // 1단계: 솔로랭크 확인 (player.js에서 오는 데이터 구조에 맞게 수정)
+    const soloRank = data.soloRank || data.allRanks?.find(rank => rank.queueType === 'RANKED_SOLO_5x5');
     console.log('1단계 - 솔로랭크 검사:', soloRank ? 'FOUND' : 'NOT_FOUND');
 
     // 2단계: 자유랭크 fallback
-    const flexRank = data.flexRank || data.rankedInfo?.find(rank => rank.queueType === 'RANKED_FLEX_SR');
+    const flexRank = data.flexRank || data.allRanks?.find(rank => rank.queueType === 'RANKED_FLEX_SR');
     console.log('2단계 - 자유랭크 검사:', flexRank ? 'FOUND' : 'NOT_FOUND');
 
     // 3단계: 기타 랭크 정보
-    const anyRank = data.rankedInfo?.[0];
+    const anyRank = data.allRanks?.[0];
     console.log('3단계 - 기타 랭크 검사:', anyRank ? 'FOUND' : 'NOT_FOUND');
 
     // 4단계: 최종 랭크 결정 (우선순위: 솔로 > 자유 > 기타)
@@ -390,11 +408,11 @@ export const RiotAPI = {
     }
     console.log('=====================================');
 
-    // 승률 계산 - 최근 20게임 승률 우선 (algorithm.md 기준)
+    // 승률 계산 - 실제 플레이한 게임 수 기준
     const totalGames = wins + losses;
     const overallWinRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 50;
-    // 최근 20게임 승률을 메인으로 사용
-    const recentWinRate = data.recentMatches?.winRate || overallWinRate;
+    // 최근 게임 승률을 메인으로 사용 (실제 게임 수 기준)
+    const recentWinRate = data.recentStats?.winRate || data.recentMatches?.winRate || overallWinRate;
 
     // 주/부 포지션 결정 (개선된 로직)
     const positionEntries = Object.entries(data.positions || {});
@@ -443,10 +461,10 @@ export const RiotAPI = {
     console.log('\n계산된 포지션 숙련도:');
     console.log(roleProficiency);
 
-    // 통계 데이터 추출 (개선된 로직)
-    const avgKDA = data.recentMatches?.avgKDA || 2.0;
-    const csPerMin = data.recentMatches?.avgCS || 5.5;
-    const visionScorePerMin = data.recentMatches?.avgVisionScore || 1.2;
+    // 통계 데이터 추출 (recentStats 우선 사용)
+    const avgKDA = data.recentStats?.avgKDA || data.recentMatches?.avgKDA || 2.0;
+    const csPerMin = data.recentStats?.avgCSPerMin || data.recentMatches?.avgCS || 5.5;
+    const visionScorePerMin = data.recentStats?.avgVisionScorePerMin || data.recentMatches?.avgVisionScore || 1.2;
 
     // 추가 통계 데이터 - 현재는 사용하지 않지만 향후 확장을 위해 보관
     // const avgKills = data.recentMatches?.avgKills || 5.0;
@@ -457,11 +475,14 @@ export const RiotAPI = {
     let teamContribution = 50; // 기본값 50% (평균)
 
     if (mainRole === 'SUPPORT') {
-      // 서포터의 경우 킬 관여율, CC시간, 힐/실드량 기반
-      const killParticipation = data.recentMatches?.avgKillParticipation || 50;
-      const ccContribution = data.recentMatches?.avgCCTime ? Math.min(30, (data.recentMatches.avgCCTime / 20) * 30) : 10;
-      const healShieldContribution = data.recentMatches ?
-        Math.min(20, ((data.recentMatches.avgHealing + data.recentMatches.avgShielding) / 10000) * 20) : 10;
+      // 서포터의 경우 킬 관여율, CC시간, 힐/실드량 기반 (recentStats 우선 사용)
+      const killParticipation = data.recentStats?.avgKillParticipation || data.recentMatches?.avgKillParticipation || 50;
+      const ccTime = data.recentStats?.avgCCTime || data.recentMatches?.avgCCTime || 0;
+      const healing = data.recentStats?.avgHealing || data.recentMatches?.avgHealing || 0;
+      const shielding = data.recentStats?.avgShielding || data.recentMatches?.avgShielding || 0;
+
+      const ccContribution = ccTime > 0 ? Math.min(30, (ccTime / 20) * 30) : 10;
+      const healShieldContribution = (healing + shielding) > 0 ? Math.min(20, ((healing + shielding) / 10000) * 20) : 10;
 
       // 팀 기여도 백분위 계산 (0-100)
       teamContribution = Math.min(100, Math.max(0,
@@ -474,8 +495,8 @@ export const RiotAPI = {
       console.log(`힐/실드 기여도: ${healShieldContribution.toFixed(1)}`);
       console.log(`총 팀 기여도: ${teamContribution.toFixed(1)}%`);
     } else {
-      // 다른 포지션의 경우 KDA와 킬 관여율 기반
-      const killParticipation = data.recentMatches?.avgKillParticipation || 50;
+      // 다른 포지션의 경우 KDA와 킬 관여율 기반 (recentStats 우선 사용)
+      const killParticipation = data.recentStats?.avgKillParticipation || data.recentMatches?.avgKillParticipation || 50;
       teamContribution = Math.min(100, Math.max(0,
         (killParticipation * 0.7) + (avgKDA * 5)
       ));
