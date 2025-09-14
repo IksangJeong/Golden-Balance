@@ -203,9 +203,9 @@ function App() {
               borderRadius: '12px',
               border: '1px solid rgba(200, 155, 60, 0.3)'
             }}>
-              <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                <div style={{ 
-                  color: '#f0e6d2', 
+              <div className="header-info">
+                <div style={{
+                  color: '#f0e6d2',
                   fontSize: '1.2rem',
                   fontWeight: '700'
                 }}>
@@ -220,8 +220,8 @@ function App() {
                   </div>
                 )}
               </div>
-              
-              <div style={{ display: 'flex', gap: '15px' }}>
+
+              <div className="header-buttons">
                 <button 
                   className="lol-button"
                   onClick={() => setShowAddModal(true)}
@@ -250,7 +250,7 @@ function App() {
             </div>
 
             {/* 메인 컨텐츠 */}
-            <div style={{
+            <div className="main-grid" style={{
               display: 'grid',
               gridTemplateColumns: '1fr 80px 1fr 300px 300px',
               gap: '10px',

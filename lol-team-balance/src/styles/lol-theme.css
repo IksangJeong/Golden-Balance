@@ -111,6 +111,7 @@
   border-radius: 12px;
   padding: 20px;
   min-height: 600px;
+  touch-action: pan-y; /* 세로 스크롤 허용, 가로 드래그 방지 */
 }
 
 .team-column-header {
@@ -182,7 +183,12 @@
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  overflow: hidden; /* 컨테이너를 벗어나지 않도록 제한 */
+  overflow: hidden;
+  touch-action: none; /* 터치 스크롤 방지 */
+  user-select: none; /* 텍스트 선택 방지 */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .player-card:hover {
@@ -194,6 +200,23 @@
 .player-card.dragging {
   opacity: 0.5;
   transform: scale(0.95);
+}
+
+/* 터치 디바이스에서의 드래그 피드백 */
+@media (hover: none) and (pointer: coarse) {
+  .player-card {
+    min-height: 48px; /* 터치 타겟 최소 크기 */
+    padding: 10px 8px;
+  }
+
+  .player-card:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 10px rgba(200, 155, 60, 0.6);
+  }
+
+  .player-card:hover {
+    transform: none; /* 터치 디바이스에서 hover 효과 제거 */
+  }
 }
 
 /* 티어 배지 */
@@ -248,6 +271,8 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .modal-content {
@@ -256,10 +281,41 @@
   border-radius: 12px;
   padding: 30px;
   max-width: 500px;
-  width: 90%;
+  width: 100%;
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* 모바일 모달 최적화 */
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-start;
+    padding: 10px;
+    padding-top: 20px;
+  }
+
+  .modal-content {
+    max-width: none;
+    width: 100%;
+    max-height: calc(100vh - 40px);
+    padding: 20px;
+    border-radius: 8px;
+    margin: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 5px;
+    padding-top: 10px;
+  }
+
+  .modal-content {
+    max-height: calc(100vh - 20px);
+    padding: 15px;
+    border-radius: 6px;
+  }
 }
 
 /* 입력 필드 */
@@ -272,6 +328,10 @@
   font-size: 1rem;
   width: 100%;
   transition: all 0.3s ease;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .lol-input:focus {
@@ -290,12 +350,26 @@
   width: 100%;
   cursor: pointer;
   transition: all 0.3s ease;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .lol-select:focus {
   outline: none;
   border-color: var(--border-gold);
   box-shadow: 0 0 10px rgba(200, 155, 60, 0.3);
+}
+
+/* 모바일 입력 필드 최적화 */
+@media (max-width: 768px) {
+  .lol-input,
+  .lol-select {
+    padding: 12px 15px;
+    font-size: 16px; /* iOS 자동 확대 방지 */
+    border-radius: 8px;
+  }
 }
 
 /* 툴팁 */
@@ -337,6 +411,168 @@
   background: rgba(10, 20, 40, 0.3);
 }
 
+/* 반응형 레이아웃 */
+.main-grid {
+  transition: all 0.3s ease;
+}
+
+.header-info {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+/* 데스크톱 (1024px 이상) */
+@media (min-width: 1024px) {
+  .main-grid {
+    grid-template-columns: 1fr 80px 1fr 300px 300px !important;
+  }
+}
+
+/* 태블릿 (768px - 1024px) */
+@media (max-width: 1024px) and (min-width: 768px) {
+  .main-grid {
+    grid-template-columns: 1fr 60px 1fr !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas:
+      "team1 balance team2"
+      "selected selected pool" !important;
+    gap: 15px !important;
+    height: auto !important;
+    min-height: calc(100vh - 220px) !important;
+  }
+
+  .main-grid > div:nth-child(4) { /* SelectedPlayers */
+    grid-area: selected;
+  }
+
+  .main-grid > div:nth-child(5) { /* PlayerPool */
+    grid-area: pool;
+  }
+
+  .header-buttons {
+    justify-content: center;
+  }
+
+  .lol-button {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}
+
+/* 모바일 (768px 미만) */
+@media (max-width: 768px) {
+  .main-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto auto auto !important;
+    gap: 15px !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  .main-grid > div:nth-child(2) { /* 밸런스 컬럼 */
+    order: 5;
+    padding: 10px 0;
+  }
+
+  .header-info {
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .header-info > div:first-child {
+    font-size: 1rem !important;
+  }
+
+  .header-buttons {
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .lol-button {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    min-width: 0;
+    flex: 1;
+    max-width: 140px;
+  }
+
+  .team-column {
+    min-height: 300px;
+    padding: 15px;
+  }
+
+  .team-column-header {
+    font-size: 1rem;
+    padding: 8px;
+  }
+
+  .player-slot {
+    padding: 12px;
+    margin-bottom: 8px;
+    min-height: 70px;
+  }
+
+  .player-card {
+    padding: 6px !important;
+    gap: 4px !important;
+  }
+
+  .role-label {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    min-width: 50px;
+    margin-right: 10px;
+  }
+
+  .balance-indicator {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    margin: 3px 0;
+  }
+}
+
+/* 작은 모바일 (480px 미만) */
+@media (max-width: 480px) {
+  .header-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lol-button {
+    max-width: none;
+    padding: 14px 12px;
+  }
+
+  .team-column {
+    padding: 12px;
+  }
+
+  .player-slot {
+    padding: 10px;
+    min-height: 60px;
+  }
+
+  .role-label {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    margin-right: 8px;
+  }
+
+  .player-card {
+    padding: 4px !important;
+    gap: 3px !important;
+  }
+}
+
 /* 반응형 컨테이너 최적화 */
 @media (max-width: 1200px) {
   .custom-scrollbar {
@@ -346,12 +582,7 @@
 
 @media (max-width: 768px) {
   .custom-scrollbar {
-    max-height: calc(100vh - 500px) !important;
+    max-height: calc(50vh - 100px) !important;
     min-height: 150px !important;
-  }
-
-  .player-card {
-    padding: 6px !important;
-    gap: 4px !important;
   }
 }
