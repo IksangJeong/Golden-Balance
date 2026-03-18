@@ -7,8 +7,8 @@ import { calculateAllRoleScores } from '../utils/roleScoreCalculator';
 
 // API 설정
 const RIOT_API_CONFIG = {
-  // 백엔드 프록시 서버 URL
-  BASE_URL: process.env.REACT_APP_API_PROXY || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3000/api'),
+  // Vercel 배포 API 사용 (API 키는 Vercel 환경변수에서만 관리)
+  BASE_URL: 'https://golden-balance.vercel.app/api',
   USE_MOCK: false, // 실제 API 사용
   CACHE_DURATION: 1000 * 60 * 60 * 24 // 24시간 캐시
 };
