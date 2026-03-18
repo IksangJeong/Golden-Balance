@@ -1,24 +1,47 @@
 import React from 'react';
 import { roleNames, tierColors } from '../../data/players';
-import { useDraggable } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 
-const PlayerSlot = ({ role, player, onRemove }) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+const PlayerSlot = ({ role, player, onRemove, teamNumber }) => {
+  // 드래그 기능 (플레이어가 있을 때만)
+  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: player?.id || `empty-${role}`,
     disabled: !player
   });
+
+  // 드롭 기능 (각 슬롯이 드롭 대상이 됨)
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `team${teamNumber}-${role}`
+  });
+
+  // 두 ref를 합치는 함수
+  const setNodeRef = (node) => {
+    setDragRef(node);
+    setDropRef(node);
+  };
 
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
-      style={{ ...style, minHeight: '60px', padding: '10px', width: '100%', minWidth: '280px' }}
+      style={{
+        ...style,
+        minHeight: '60px',
+        padding: '10px',
+        width: '100%',
+        minWidth: '280px',
+        ...(isOver && !player ? {
+          borderColor: '#4CAF50',
+          background: 'rgba(76, 175, 80, 0.2)',
+          transform: 'scale(1.02)'
+        } : {})
+      }}
       {...listeners}
       {...attributes}
-      className={`player-slot ${player ? 'occupied' : 'empty'} ${isDragging ? 'dragging' : ''}`}
+      className={`player-slot ${player ? 'occupied' : 'empty'} ${isDragging ? 'dragging' : ''} ${isOver ? 'drop-target' : ''}`}
     >
       <div className="role-label" style={{ minWidth: '50px', fontSize: '0.8rem', padding: '3px 8px' }}>
         {roleNames[role]}

@@ -13,9 +13,9 @@ const TIER_MULTIPLIERS = {
   'PLATINUM': 0.67,
   'EMERALD': 0.83,
   'DIAMOND': 1.00,
-  'MASTER': 1.00,
-  'GRANDMASTER': 1.00,
-  'CHALLENGER': 1.00,
+  'MASTER': 1.17,       // 마스터 이상은 100점 초과 가능
+  'GRANDMASTER': 1.33,
+  'CHALLENGER': 1.50,
   'UNRANKED': 0.25  // 언랭크는 브론즈 수준으로
 };
 

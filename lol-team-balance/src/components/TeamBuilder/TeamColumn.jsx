@@ -33,6 +33,7 @@ const TeamColumn = ({ teamNumber, players, onRemovePlayer }) => {
                 role={role}
                 player={player || players.find(p => !p.assignedRole && (p.mainRole === role || p.subRole === role))}
                 onRemove={player ? () => onRemovePlayer(player) : null}
+                teamNumber={teamNumber}
               />
             </div>
           );

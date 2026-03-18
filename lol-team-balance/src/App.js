@@ -84,13 +84,46 @@ function App() {
   };
 
   // 팀에 플레이어 추가 (드래그 앤 드롭)
-  const handleAssignPlayer = (player, teamNumber) => {
+  const handleAssignPlayer = (player, teamNumber, role = null) => {
+    // 역할이 지정되지 않으면 빈 슬롯 중 mainRole 또는 subRole 우선 배정
+    const getAvailableRole = (team) => {
+      const roles = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
+      const usedRoles = team.map(p => p.assignedRole);
+      const availableRoles = roles.filter(r => !usedRoles.includes(r));
+
+      // mainRole이 비어있으면 mainRole 배정
+      if (player.mainRole && availableRoles.includes(player.mainRole)) {
+        return player.mainRole;
+      }
+      // subRole이 비어있으면 subRole 배정
+      if (player.subRole && availableRoles.includes(player.subRole)) {
+        return player.subRole;
+      }
+      // 아무거나 빈 슬롯 배정
+      return availableRoles[0] || 'TOP';
+    };
+
+    const assignedRole = role || getAvailableRole(teamNumber === 1 ? team1 : team2);
+
     if (teamNumber === 1 && team1.length < 5) {
-      setTeam1([...team1, { ...player, assignedRole: 'TOP' }]); // 임시로 TOP 할당
-      setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
+      // 해당 역할에 이미 플레이어가 있으면 교체
+      const existingPlayer = team1.find(p => p.assignedRole === assignedRole);
+      if (existingPlayer) {
+        setTeam1(team1.filter(p => p.id !== existingPlayer.id));
+        setSelectedPlayers([...selectedPlayers.filter(p => p.id !== player.id), existingPlayer]);
+      } else {
+        setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
+      }
+      setTeam1(prev => [...prev.filter(p => p.assignedRole !== assignedRole), { ...player, assignedRole }]);
     } else if (teamNumber === 2 && team2.length < 5) {
-      setTeam2([...team2, { ...player, assignedRole: 'TOP' }]); // 임시로 TOP 할당
-      setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
+      const existingPlayer = team2.find(p => p.assignedRole === assignedRole);
+      if (existingPlayer) {
+        setTeam2(team2.filter(p => p.id !== existingPlayer.id));
+        setSelectedPlayers([...selectedPlayers.filter(p => p.id !== player.id), existingPlayer]);
+      } else {
+        setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
+      }
+      setTeam2(prev => [...prev.filter(p => p.assignedRole !== assignedRole), { ...player, assignedRole }]);
     }
     setBalanceResult(null);
   };
@@ -152,22 +185,66 @@ function App() {
 
     if (!draggedPlayer) return;
 
-    // 드롭 대상 확인
-    if (over.id === 'team1') {
+    const overId = over.id;
+
+    // 개별 슬롯 드롭 처리 (team1-TOP, team2-JUNGLE 등)
+    if (overId.startsWith('team1-') || overId.startsWith('team2-')) {
+      const [teamPart, role] = overId.split('-');
+      const teamNumber = teamPart === 'team1' ? 1 : 2;
+
+      // 현재 플레이어가 어디에 있는지 확인
+      const isInSelected = selectedPlayers.some(p => p.id === draggedPlayer.id);
+      const isInTeam1 = team1.some(p => p.id === draggedPlayer.id);
+      const isInTeam2 = team2.some(p => p.id === draggedPlayer.id);
+
+      // 다른 팀에서 왔으면 먼저 제거
+      if (teamNumber === 1 && isInTeam2) {
+        setTeam2(prev => prev.filter(p => p.id !== draggedPlayer.id));
+      } else if (teamNumber === 2 && isInTeam1) {
+        setTeam1(prev => prev.filter(p => p.id !== draggedPlayer.id));
+      }
+
+      // 같은 팀 내에서 역할 변경
+      if ((teamNumber === 1 && isInTeam1) || (teamNumber === 2 && isInTeam2)) {
+        const setTeam = teamNumber === 1 ? setTeam1 : setTeam2;
+        const currentTeam = teamNumber === 1 ? team1 : team2;
+
+        // 해당 역할에 다른 플레이어가 있으면 교체
+        const playerInTargetRole = currentTeam.find(p => p.assignedRole === role && p.id !== draggedPlayer.id);
+
+        setTeam(prev => {
+          let updated = prev.filter(p => p.id !== draggedPlayer.id);
+          if (playerInTargetRole) {
+            // 기존 플레이어는 드래그한 플레이어의 원래 역할로 이동
+            updated = updated.map(p =>
+              p.id === playerInTargetRole.id
+                ? { ...p, assignedRole: draggedPlayer.assignedRole }
+                : p
+            );
+          }
+          return [...updated, { ...draggedPlayer, assignedRole: role }];
+        });
+      } else {
+        // 다른 곳에서 팀으로 이동
+        handleAssignPlayer(draggedPlayer, teamNumber, role);
+      }
+    }
+    // 팀 전체 영역 드롭 (기존 로직)
+    else if (overId === 'team1') {
       if (selectedPlayers.some(p => p.id === draggedPlayer.id)) {
         handleAssignPlayer(draggedPlayer, 1);
       } else if (team2.some(p => p.id === draggedPlayer.id)) {
         handleUnassignPlayer(draggedPlayer, 2);
         handleAssignPlayer(draggedPlayer, 1);
       }
-    } else if (over.id === 'team2') {
+    } else if (overId === 'team2') {
       if (selectedPlayers.some(p => p.id === draggedPlayer.id)) {
         handleAssignPlayer(draggedPlayer, 2);
       } else if (team1.some(p => p.id === draggedPlayer.id)) {
         handleUnassignPlayer(draggedPlayer, 1);
         handleAssignPlayer(draggedPlayer, 2);
       }
-    } else if (over.id === 'selected') {
+    } else if (overId === 'selected') {
       if (team1.some(p => p.id === draggedPlayer.id)) {
         handleUnassignPlayer(draggedPlayer, 1);
       } else if (team2.some(p => p.id === draggedPlayer.id)) {
@@ -343,14 +420,41 @@ function App() {
         )}
 
         <DragOverlay>
-          {activeId ? (
-            <div style={{ 
-              cursor: 'grabbing',
-              opacity: 0.8
-            }}>
-              드래그 중...
-            </div>
-          ) : null}
+          {activeId ? (() => {
+            const activePlayer = [...selectedPlayers, ...team1, ...team2].find(p => p.id === activeId);
+            return activePlayer ? (
+              <div style={{
+                cursor: 'grabbing',
+                opacity: 0.9,
+                background: 'linear-gradient(135deg, #1e2328 0%, #0c1f3d 100%)',
+                border: '2px solid #c89b3c',
+                borderRadius: '8px',
+                padding: '10px 15px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                boxShadow: '0 8px 32px rgba(200, 155, 60, 0.4)',
+                minWidth: '200px'
+              }}>
+                <span style={{ fontSize: '1.5rem' }}>{activePlayer.championIcon}</span>
+                <div>
+                  <div style={{
+                    color: '#f0e6d2',
+                    fontWeight: '700',
+                    fontSize: '1rem'
+                  }}>
+                    {activePlayer.name}
+                  </div>
+                  <div style={{
+                    color: '#c89b3c',
+                    fontSize: '0.8rem'
+                  }}>
+                    {activePlayer.tier}
+                  </div>
+                </div>
+              </div>
+            ) : null;
+          })() : null}
         </DragOverlay>
       </div>
     </DndContext>
