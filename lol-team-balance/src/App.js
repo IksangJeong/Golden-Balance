@@ -193,7 +193,6 @@ function App() {
       const teamNumber = teamPart === 'team1' ? 1 : 2;
 
       // 현재 플레이어가 어디에 있는지 확인
-      const isInSelected = selectedPlayers.some(p => p.id === draggedPlayer.id);
       const isInTeam1 = team1.some(p => p.id === draggedPlayer.id);
       const isInTeam2 = team2.some(p => p.id === draggedPlayer.id);
 
