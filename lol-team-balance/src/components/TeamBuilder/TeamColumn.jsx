@@ -46,15 +46,16 @@ const TeamColumn = ({ teamNumber, players, onRemovePlayer }) => {
         background: 'rgba(0, 0, 0, 0.3)',
         borderRadius: '8px'
       }}>
-        <div style={{ 
+        <div style={{
           color: '#c89b3c',
           fontSize: '0.9rem',
           marginBottom: '5px',
           lineHeight: 1.3
         }}>
-          팀 총합 스킬: {players.reduce((sum, p) => sum + (p.skillScore || 0), 0).toFixed(0)}
+          역할점수 총합: {players.reduce((sum, p) =>
+            sum + (p.roleSpecificScores?.[p.assignedRole] || p.skillScore || 0), 0).toFixed(0)}
         </div>
-        <div style={{ 
+        <div style={{
           color: '#f0e6d2',
           fontSize: '0.8rem',
           lineHeight: 1.3

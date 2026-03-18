@@ -24,6 +24,11 @@ export const BALANCE_THRESHOLDS = {
   MAX_PROFICIENCY_DIFF: 4,    // 숙련도 최대 차이
   MAX_TIER_GAP: 2,            // 티어 최대 격차
 
+  // 팀 총합 점수 제약 (신규)
+  TEAM_TOTAL_MAX_DIFF: 15,    // 팀 총 역할점수 차이 최대 15점
+  TEAM_TOTAL_GOLDEN: 15,      // 황벨 기준: 총합 차이 ≤ 15
+  TEAM_TOTAL_FAIR: 25,        // 맞벨 기준: 총합 차이 ≤ 25
+
   // 전체 팀 밸런스 기준
   GOLDEN_TOTAL: 50,    // 황금밸런스 총점
   FAIR_TOTAL: 80,      // 맞벨런스 총점
@@ -311,41 +316,76 @@ export const calculateTeamSynergyPenalty = (team1, team2) => {
 
   const totalScore1 = getTeamTotalRoleScore(team1);
   const totalScore2 = getTeamTotalRoleScore(team2);
-  const scorePenalty = Math.abs(totalScore1 - totalScore2) * 0.1;
+  const totalScoreDiff = Math.abs(totalScore1 - totalScore2);
+  const scorePenalty = totalScoreDiff * 0.5; // 0.1 → 0.5로 강화
 
-  return tierPenalty + scorePenalty;
+  return {
+    tierPenalty,
+    scorePenalty,
+    totalPenalty: tierPenalty + scorePenalty,
+    team1Total: totalScore1,
+    team2Total: totalScore2,
+    totalScoreDiff
+  };
 };
 
 /**
  * 전체 팀 밸런스 등급 판정
  *
  * @param {Object} laneAnalysis - analyzeAllLanes의 결과
- * @param {number} synergyPenalty - 시너지 페널티
+ * @param {Object} synergyResult - calculateTeamSynergyPenalty의 결과 객체
  * @returns {Object} - 전체 밸런스 결과
  */
-export const getOverallTeamBalance = (laneAnalysis, synergyPenalty = 0) => {
+export const getOverallTeamBalance = (laneAnalysis, synergyResult = {}) => {
   const { totalLms, goldenCount, poorCount, hasViolations } = laneAnalysis;
+
+  // synergyResult가 숫자면 기존 호환성 유지, 객체면 새 형식 사용
+  const synergyPenalty = typeof synergyResult === 'number'
+    ? synergyResult
+    : (synergyResult.totalPenalty || 0);
+  const totalScoreDiff = typeof synergyResult === 'object'
+    ? (synergyResult.totalScoreDiff || 0)
+    : 0;
+  const team1Total = typeof synergyResult === 'object'
+    ? (synergyResult.team1Total || 0)
+    : 0;
+  const team2Total = typeof synergyResult === 'object'
+    ? (synergyResult.team2Total || 0)
+    : 0;
+
   const totalBalance = totalLms + synergyPenalty;
 
   let grade;
   let reason;
+
+  // 팀 총합 차이 등급
+  const totalDiffGrade = totalScoreDiff <= BALANCE_THRESHOLDS.TEAM_TOTAL_GOLDEN
+    ? BALANCE_GRADES.GOLDEN
+    : totalScoreDiff <= BALANCE_THRESHOLDS.TEAM_TOTAL_FAIR
+      ? BALANCE_GRADES.FAIR
+      : BALANCE_GRADES.POOR;
 
   // 하드 제약 위반 시 무조건 똥벨
   if (hasViolations) {
     grade = BALANCE_GRADES.POOR;
     reason = '하드 제약 위반';
   }
+  // 팀 총합 차이가 25점 초과시 똥벨
+  else if (totalScoreDiff > BALANCE_THRESHOLDS.TEAM_TOTAL_FAIR) {
+    grade = BALANCE_GRADES.POOR;
+    reason = `팀 총합 차이 ${totalScoreDiff.toFixed(0)}점 초과`;
+  }
   // 똥벨 판정 조건
   else if (poorCount >= 2 || totalBalance > BALANCE_THRESHOLDS.POOR_TOTAL) {
     grade = BALANCE_GRADES.POOR;
     reason = poorCount >= 2 ? `${poorCount}개 라인 불균형` : `총점 ${totalBalance.toFixed(1)} 초과`;
   }
-  // 황금밸런스 판정 조건
-  else if (goldenCount >= 5 && totalBalance < BALANCE_THRESHOLDS.GOLDEN_TOTAL) {
+  // 황금밸런스 판정 조건 (팀 총합 차이도 15점 이하여야 함)
+  else if (goldenCount >= 5 && totalBalance < BALANCE_THRESHOLDS.GOLDEN_TOTAL && totalScoreDiff <= BALANCE_THRESHOLDS.TEAM_TOTAL_GOLDEN) {
     grade = BALANCE_GRADES.GOLDEN;
     reason = '모든 라인 완벽 밸런스';
   }
-  else if (goldenCount >= 4 && poorCount === 0 && totalBalance < BALANCE_THRESHOLDS.GOLDEN_TOTAL) {
+  else if (goldenCount >= 4 && poorCount === 0 && totalBalance < BALANCE_THRESHOLDS.GOLDEN_TOTAL && totalScoreDiff <= BALANCE_THRESHOLDS.TEAM_TOTAL_GOLDEN) {
     grade = BALANCE_GRADES.GOLDEN;
     reason = `${goldenCount}개 라인 황금밸런스`;
   }
@@ -367,7 +407,12 @@ export const getOverallTeamBalance = (laneAnalysis, synergyPenalty = 0) => {
     synergyPenalty: Math.round(synergyPenalty * 100) / 100,
     goldenCount,
     poorCount,
-    hasViolations
+    hasViolations,
+    // 팀 총합 정보 추가
+    team1Total: Math.round(team1Total),
+    team2Total: Math.round(team2Total),
+    totalScoreDiff: Math.round(totalScoreDiff),
+    totalDiffGrade
   };
 };
 

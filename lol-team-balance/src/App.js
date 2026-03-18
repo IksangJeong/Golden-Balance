@@ -8,6 +8,11 @@ import SelectedPlayers from './components/TeamBuilder/UnassignedPlayers';
 import PlayerPool from './components/TeamBuilder/PlayerPool';
 import AddPlayerModal from './components/PlayerManagement/AddPlayerModal';
 import { balanceTeams } from './utils/teamBalancer';
+import {
+  analyzeAllLanes,
+  calculateTeamSynergyPenalty,
+  getOverallTeamBalance
+} from './utils/laneMatchupCalculator';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 
 function App() {
@@ -28,6 +33,57 @@ function App() {
     }
     // 하드코딩된 데이터 제거 - 사용자가 직접 플레이어를 추가하도록 변경
   }, []);
+
+  // 실시간 밸런스 재계산 (팀이 변경될 때마다)
+  useEffect(() => {
+    // 양 팀에 최소 1명씩 있어야 계산
+    if (team1.length > 0 && team2.length > 0) {
+      try {
+        const laneAnalysis = analyzeAllLanes(team1, team2);
+        const synergyResult = calculateTeamSynergyPenalty(team1, team2);
+        const overallResult = getOverallTeamBalance(laneAnalysis, synergyResult);
+
+        // 라인별 밸런스 포맷
+        const balance = {};
+        for (const [role, analysis] of Object.entries(laneAnalysis.lanes || {})) {
+          balance[role] = {
+            team1Player: analysis.team1Player,
+            team2Player: analysis.team2Player,
+            team1Skill: analysis.team1RoleScore,
+            team2Skill: analysis.team2RoleScore,
+            team1Prof: analysis.team1Proficiency,
+            team2Prof: analysis.team2Proficiency,
+            team1Fit: analysis.team1Proficiency >= 7 ? '메인' : '서브',
+            team2Fit: analysis.team2Proficiency >= 7 ? '메인' : '서브',
+            skillDiff: analysis.roleScoreDiff.toFixed(0),
+            profDiff: analysis.profDiff,
+            totalDiff: ((analysis.lms / ((analysis.team1RoleScore + analysis.team2RoleScore) / 2)) * 100).toFixed(1),
+            grade: analysis.grade,
+            gradeReason: analysis.gradeReason,
+            lms: analysis.lms
+          };
+        }
+
+        setBalanceResult({
+          balance,
+          overallBalance: overallResult.grade,
+          team1Total: overallResult.team1Total,
+          team2Total: overallResult.team2Total,
+          totalDiff: overallResult.totalScoreDiff,
+          totalDiffGrade: overallResult.totalDiffGrade,
+          detailedAnalysis: {
+            laneAnalysis,
+            synergyPenalty: synergyResult.totalPenalty,
+            overallResult
+          }
+        });
+      } catch (error) {
+        console.log('밸런스 계산 오류:', error);
+      }
+    } else if (team1.length === 0 && team2.length === 0) {
+      setBalanceResult(null);
+    }
+  }, [team1, team2]);
 
   // 새 플레이어 추가 (전체 DB에)
   const handleAddPlayer = (newPlayer) => {

@@ -208,6 +208,24 @@ function isValidComposition(composition) {
     }
   }
 
+  // 팀 총합 점수 차이 검사 (15점 이하)
+  const getTeamTotalScore = (team) => {
+    return team.reduce((sum, p) => {
+      const role = p.assignedRole;
+      const roleScore = p.roleSpecificScores?.[role] ||
+        calculateRoleScore(role, extractPlayerStats(p));
+      return sum + roleScore;
+    }, 0);
+  };
+
+  const team1Total = getTeamTotalScore(team1);
+  const team2Total = getTeamTotalScore(team2);
+  const totalScoreDiff = Math.abs(team1Total - team2Total);
+
+  if (totalScoreDiff > BALANCE_THRESHOLDS.TEAM_TOTAL_MAX_DIFF) {
+    return false;
+  }
+
   return true;
 }
 
