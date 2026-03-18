@@ -3,6 +3,7 @@
 // 개발 단계에서는 목업 데이터 사용, 추후 백엔드 프록시 서버 연동
 
 import { createPlayerProfile } from '../data/players';
+import { calculateAllRoleScores } from '../utils/roleScoreCalculator';
 
 // API 설정
 const RIOT_API_CONFIG = {
@@ -652,6 +653,31 @@ export const RiotAPI = {
       ));
     }
 
+    // 역할별 점수 계산을 위한 통계 데이터 준비
+    const avgDamage = data.recentStats?.avgDamage || data.recentMatches?.avgDamage || 15000;
+    const avgAssists = data.recentStats?.avgAssists || data.recentMatches?.avgAssists || 6;
+
+    const statsForRoleScores = {
+      tier: tier,
+      winRate: recentWinRate,
+      avgKDA: avgKDA,
+      csPerMin: csPerMin,
+      avgDamage: avgDamage,
+      visionScorePerMin: visionScorePerMin,
+      avgAssists: avgAssists
+    };
+
+    // 모든 역할에 대한 점수 계산
+    const roleSpecificScores = calculateAllRoleScores(statsForRoleScores);
+
+    console.log('\n=== 역할별 점수 계산 결과 ===');
+    console.log('TOP:', roleSpecificScores.TOP);
+    console.log('JUNGLE:', roleSpecificScores.JUNGLE);
+    console.log('MID:', roleSpecificScores.MID);
+    console.log('ADC:', roleSpecificScores.ADC);
+    console.log('SUPPORT:', roleSpecificScores.SUPPORT);
+    console.log('============================\n');
+
     const profile = createPlayerProfile({
       name: playerName,
       summonerName: data.riotId || data.gameName || data.name || playerName,
@@ -663,11 +689,14 @@ export const RiotAPI = {
       recentWinRate: recentWinRate, // 최근 20게임 승률 (algorithm.md 기준)
       avgKDA: avgKDA,
       csPerMin: csPerMin,
+      avgDamage: avgDamage,
+      avgAssists: avgAssists,
       visionScorePerMin: visionScorePerMin,
       teamContribution: Math.round(teamContribution),
       mainRole: mainRole,
       subRole: subRole,
       roleProficiency: roleProficiency,
+      roleSpecificScores: roleSpecificScores, // 역할별 점수 추가
       lastUpdated: new Date().toISOString().split('T')[0],
       isFromAPI: true
     });

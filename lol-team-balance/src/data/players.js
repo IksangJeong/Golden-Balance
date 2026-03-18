@@ -182,6 +182,8 @@ export const createPlayerProfile = (basicInfo) => {
     recentWinRate: basicInfo.recentWinRate || basicInfo.winRate || 50, // 최근 20게임 승률
     avgKDA: basicInfo.avgKDA || 2.0,
     csPerMin: basicInfo.csPerMin || 5.5,
+    avgDamage: basicInfo.avgDamage || 15000, // 평균 딜량
+    avgAssists: basicInfo.avgAssists || 6, // 평균 어시스트
     visionScorePerMin: basicInfo.visionScorePerMin || 1.2, // 서포터용
     teamContribution: basicInfo.teamContribution || 50, // 팀기여도 (서포터용, 백분위)
 
@@ -195,6 +197,9 @@ export const createPlayerProfile = (basicInfo) => {
       ADC: 5,
       SUPPORT: 5
     },
+
+    // 역할별 점수 (황금밸런스 알고리즘용)
+    roleSpecificScores: basicInfo.roleSpecificScores || null,
 
     // UI 정보
     championIcon: basicInfo.championIcon || roleIcons[basicInfo.mainRole] || '🗡️',
@@ -224,6 +229,14 @@ export const createPlayerProfile = (basicInfo) => {
         EMERALD: 6, DIAMOND: 7, MASTER: 8, GRANDMASTER: 9, CHALLENGER: 10
       };
       return tierLevels[this.tier] || 3;
+    },
+
+    // 메인 역할에 대한 역할별 점수
+    get mainRoleScore() {
+      if (this.roleSpecificScores && this.mainRole) {
+        return this.roleSpecificScores[this.mainRole] || 0;
+      }
+      return 0;
     }
   };
 
